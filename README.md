@@ -1,2 +1,2 @@
 # TRAC3D
-TRAC3D is a repository to collect statistical routine for the analysis of 3D data of use-wear traces (i.e., micropoliwsh) measured with confocal microscopy.
+TRAC3D is a repository to collect statistical routines for the analysis of 3D data of use-wear traces (i.e., micropoliwsh) measured with confocal microscopy. This statistical routines helps user to perform a blind-classification of a test set (ie., archaeological data), over a training set (i.e., experimental data). It also provide a script for reducing the number of textural parameters to be used as predictors for in the classification procedure, by selecting the most significant ones. 
