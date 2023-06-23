@@ -512,7 +512,7 @@ write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
 # Calculate the percentage of individuals in Class 3
 percentage_class3 <- percentage[3, ]
   
-# Select the individuals with more than 50% for Class 3
+# Select the individuals with more than 60% for Class 3
 selected_individuals <- percentage_class3[percentage_class3 > 60]
   
 # Print the selected individuals
