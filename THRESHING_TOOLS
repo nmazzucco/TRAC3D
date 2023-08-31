@@ -1,0 +1,874 @@
+# This script has been made to classify a series of archaeological tools by using an experimental reference collection. It is organized as following:
+# Data Preprocessing: The script starts with loading necessary libraries and defining the file paths. It splits raw data into training and test sets
+# Correlation Analysis and Variable Selection: the script performs a t-test to determine the correlation between each predictor and the outcome variable.
+# Canonical Discriminant Analysis (CDA): The CDA model is trained using the lda function from the MASS package.
+# Structure Matrix: it generates and saves the structure matrix which indicates the contribution of each predictor to LD1 and LD2.
+# Cross-Table with Prediction Results: The training dataset is used to make predictions using the CDA model.
+# Test Model Accuracy: A multinomial logistic regression model is trained on the training set and evaluated on the testing set.
+# Blind Classification and Confidence Calculation: The trained CDA model is applied to the test archaeological data to perform blind classification.
+# Identifying Classification at Tool Level: A cross-tabulation of predicted classes and TOOL is created,
+
+# Load the required libraries
+library(readxl)
+library(openxlsx)
+library(ggplot2)
+library(dplyr)
+library(writexl)
+library(MASS)
+library(caret)
+library(nnet)
+
+# Specify the file path
+file_path <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\RAWDATA\\Dataset_all.xlsx"
+
+# Read the Excel file
+data <- read_excel(file_path)
+
+# Split the data into training and test based on the values in column "CAT"
+training_data <- data[data$CAT == 2, ]
+test_data <- data[data$CAT == 1, ]
+
+# Specify the file paths for the training and test files
+training_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\training.xlsx"
+test_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\test.xlsx"
+
+# Write the training data to a new Excel file
+write.xlsx(training_data, file = training_file, rownames = FALSE)
+
+# Write the test data to a new Excel file
+write.xlsx(test_data, file = test_file, rownames = FALSE)
+
+# Extract the CODE_COD and ORIGINAL_NAME columns from the original data
+code_orig_names <- training_data[, c("CODE_COD", "ID", "ORIGINAL_NAME")]
+
+# Create a mapping of row index to ID value
+row_id_mapping <- data$ID
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/row_id_mapping.csv"
+
+# Save the cross table as a CSV file
+write.csv(row_id_mapping, file = file_path, row.names = TRUE)
+
+# Specify the numerical predictors
+numerical_predictors <- c("Sq",	"Ssk",	"Sku",	"Sp",	"Sv",	"Sz",	"Sa",	"Smrc",	"Smc",	"Sxp",	"Sal",	"Strs",	"Std",	"Sdq", "Sha", "Sds", "Sfd",	"Sdr",	"Vm",	"Vv",	"Vmp",	"Vmc",	"Vvc",	"Vvv",	"Spd",	"Spc",	"S10z",	"S5p",	"S5v",	"Sda",	"Sdv",	"Shv",	"Sk",	"Spk",	"Svk",	"Smr1",	"Sdar",	"Spar",	"St",	"SWt",	"Stdi",	"Ssc",	"Sdc",	"Sbi",	"Sci",	"Svi",	"Profundidadmax",	"Profundidadmed",	"Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data <- training_data[, c("CODE_COD", "ORIGINAL_NAME", numerical_predictors)]
+
+# Remove rows with missing values
+selected_training_data_clean <- na.omit(selected_training_data)
+anyNA(selected_training_data$Densidadmed)
+
+# Calculate the variances of each column
+variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var)
+print(variances)
+
+# Filter numerical predictors based on non-zero variance
+non_zero_var_predictors <- numerical_predictors[variances > 0]
+variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var)
+zero_variance_vars <- numerical_predictors[variances == 0]
+numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
+print(zero_variance_vars)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S2_zero_variances_vars.csv"
+
+# Save the cross table as a CSV file
+write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
+
+selected_training_data_clean <- selected_training_data_clean[, !(colnames(selected_training_data_clean) %in% zero_variance_vars)]
+numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
+non_zero_var_predictors <- setdiff(non_zero_var_predictors, zero_variance_vars)
+
+# Remove rows with missing values
+non_zero_var_predictors <- na.omit(non_zero_var_predictors)
+numerical_predictors <- na.omit(numerical_predictors)
+print(numerical_predictors)
+
+
+###############################################################ELIMINATE PREDICTORS WITH LOW P-VALUES
+
+# Calculate the correlation matrix
+cor_matrix <- cor(selected_training_data_clean[, non_zero_var_predictors])
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S3_cor_matrix.csv"
+
+# Save the cross table as a CSV file
+write.csv(cor_matrix, file = file_path, row.names = TRUE)
+
+# Create an empty vector to store p-values
+p_values <- numeric(length(numerical_predictors))
+
+# Iterate through each predictor
+for (i in 1:length(numerical_predictors)) {
+  # Perform correlation test and extract the p-value
+  x <- as.numeric(selected_training_data_clean[[numerical_predictors[i]]])
+  y <- as.numeric(selected_training_data_clean$CODE_COD)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Print or view the p-values
+print(p_values)
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
+
+# Define the file path and name for the p-values CSV file
+file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/THRESHING/S4_p_values.csv"
+
+# Save the data frame as a CSV file
+write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
+
+# Create an empty vector to store the predictors to remove
+predictors_to_remove <- character(0)
+
+# Iterate through each predictor
+for (i in 1:length(p_values)) {
+  # Check if the p-value is greater than 0.005
+  if (p_values[i] > 0.005) {
+    # Add the predictor name to the vector of predictors to remove
+    predictors_to_remove <- c(predictors_to_remove, numerical_predictors[i])
+  }
+}
+
+# Remove ORIGINAL_NAME column from selected_training_data_clean
+selected_training_data_clean <- subset(selected_training_data_clean, select = -c(ORIGINAL_NAME))
+
+# Specify the outcome variable
+outcome_var <- "CODE_COD"
+
+# Create an empty data frame to store the results
+univariate_result_df <- data.frame(Predictor = character(0), P_Value = numeric(0), stringsAsFactors = FALSE)
+
+# Iterate through each predictor
+for (predictor in colnames(selected_training_data_clean)[-1]) {
+  # Perform t-test and extract the p-value
+  p_value <- t.test(selected_training_data_clean[[predictor]], selected_training_data_clean[[outcome_var]])$p.value
+  
+  # Add the predictor and p-value to the data frame
+  univariate_result_df <- rbind(univariate_result_df, data.frame(Predictor = predictor, P_Value = p_value, stringsAsFactors = FALSE))
+}
+
+# Sort the data frame by p-value in ascending order
+univariate_result_df <- univariate_result_df[order(univariate_result_df$P_Value), ]
+
+# Select the top 15 predictors with the lowest p-values
+selected_predictors <- head(univariate_result_df$Predictor, 15)
+
+# Print or view the selected predictors
+print(selected_predictors)
+
+# Save the selected predictors to a new CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S5_selected_predictors.csv"
+write.csv(selected_predictors, file = file_path, row.names = FALSE)
+
+# Remove the predictors from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% predictors_to_remove)]
+
+# Extract the updated_predictors
+updated_predictors <- tail(colnames(selected_training_data_clean)[-1], 11)
+
+# Subset the data to include only the updated predictors
+selected_training_data_clean_copy <- selected_training_data_clean[, c("CODE_COD", updated_predictors)]
+
+
+
+
+###########################################################ELIMINATE CORRELATED PREDICTORS
+
+# Calculate the correlation matrix
+cor_matrix_updated_predictors <- cor(selected_training_data_clean_copy)
+
+# Identify correlations greater than 0.8
+high_correlations <- which(cor_matrix_updated_predictors > 0.8 & cor_matrix_updated_predictors < 1, arr.ind = TRUE)
+
+# Print the pairs of highly correlated predictors
+if (length(high_correlations) > 0) {
+  for (i in 1:nrow(high_correlations)) {
+    row_idx <- high_correlations[i, 1]
+    col_idx <- high_correlations[i, 2]
+    predictor1 <- rownames(cor_matrix_updated_predictors)[row_idx]
+    predictor2 <- colnames(cor_matrix_updated_predictors)[col_idx]
+    correlation <- cor_matrix_updated_predictors[row_idx, col_idx]
+    cat("Predictor", predictor1, "and", predictor2, "are highly correlated with a correlation of", correlation, "\n")
+  }
+} else {
+  cat("No predictors are highly correlated (correlation > 0.8).\n")
+}
+
+# Function to remove correlated predictors
+remove_correlated_predictors <- function(data, cor_matrix, threshold = 0.8) {
+  correlated_features <- which(cor_matrix > threshold & cor_matrix < 1, arr.ind = TRUE)
+  
+  removed_predictors <- character()
+  for (i in 1:nrow(correlated_features)) {
+    feature1 <- rownames(cor_matrix)[correlated_features[i, 1]]
+    feature2 <- colnames(cor_matrix)[correlated_features[i, 2]]
+    
+    if (!(feature1 %in% removed_predictors) && !(feature2 %in% removed_predictors) && feature1 != feature2) {
+      correlation <- cor_matrix[correlated_features[i, 1], correlated_features[i, 2]]
+      cat(sprintf("Predictor %s and %s are highly correlated with a correlation of %.7f\n", feature1, feature2, correlation))
+      
+      pvalue1 <- anova(lm(data[[feature1]] ~ data[[feature2]]))$`Pr(>F)`[1]
+      pvalue2 <- anova(lm(data[[feature2]] ~ data[[feature1]]))$`Pr(>F)`[1]
+      
+      if (pvalue1 < pvalue2) {
+        data <- data[, !colnames(data) %in% feature1]
+        removed_predictors <- c(removed_predictors, feature1)
+      } else {
+        data <- data[, !colnames(data) %in% feature2]
+        removed_predictors <- c(removed_predictors, feature2)
+      }
+    }
+  }
+  
+  return(list(data = data, removed_predictors = removed_predictors))
+}
+
+
+result <- remove_correlated_predictors(selected_training_data_clean_copy, cor_matrix_updated_predictors)
+selected_training_data_clean <- result$data
+removed_predictors <- result$removed_predictors
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S6a_selected_training_data_clean.csv"
+
+# Save the cross table as a CSV file
+write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+
+
+
+#----------------------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(CODE_COD ~ ., data = selected_training_data_clean)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean$CODE_COD))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (CODE_COD) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+
+
+#----------------------------------------------------------------------STRUCTURE MATRIX
+
+# Exclude CODE_COD and Prediction variables
+variables <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% c("CODE_COD", "Prediction"))]
+
+# Convert variables to numeric format
+variables <- as.data.frame(sapply(variables, as.numeric))
+
+# Get the canonical function matrix
+canonical_functions <- cda_model$scaling
+
+# Transpose the canonical_functions matrix
+canonical_functions_transposed <- t(canonical_functions)
+
+# Get the coefficients for each variable in the canonical discriminant functions
+coefficients <- canonical_functions_transposed
+
+# Transpose the coefficients matrix for printing
+coefficients_transposed <- t(coefficients)
+
+# Print the ordered variables with their contributions and coefficients
+print(coefficients_transposed)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S7_variables_contributions.csv"
+
+# Save the cross table as a CSV file
+write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
+
+# Extract the coefficients for LD1 and LD2
+coeff_LD1 <- coefficients["LD1", ]
+coeff_LD2 <- coefficients["LD2", ]
+
+# Sort the absolute values of the coefficients in descending order
+sorted_LD1 <- sort(abs(coeff_LD1), decreasing = TRUE)
+sorted_LD2 <- sort(abs(coeff_LD2), decreasing = TRUE)
+
+# Extract the top 6 variables for LD1 and LD2
+top_variables_LD1 <- names(sorted_LD1)[1:6]
+top_variables_LD2 <- names(sorted_LD2)[1:6]
+
+# Print the top variables for LD1 and LD2
+cat("Top variables for LD1:\n")
+print(top_variables_LD1)
+cat("Top variables for LD2:\n")
+print(top_variables_LD2)
+
+# Select the unique set of variables that contribute the most to LD1 and LD2
+selected_variables <- unique(c(top_variables_LD1, top_variables_LD2))
+print(selected_variables)
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean$CODE_COD, selected_training_data_clean$Prediction)
+
+# Compute row percentages
+row_percentages <- prop.table(cross_table, margin = 1) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+row_percentages_with_margins <- addmargins(row_percentages, margin = 1)
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, row_percentages_with_margins)
+
+# Rename the row and column names
+rownames(cross_table_combined)[1:4] <- c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges", "Sum")
+colnames(cross_table_combined)[1:3] <- c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges")
+colnames(cross_table_combined)[4] <- "Sum"
+colnames(cross_table_combined)[5:7] <- c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:3, 1:3])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:3, 1:3])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S8_results_training_all_var.csv"
+
+# Save the cross table as a CSV file
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+#------------------------------------------------------------------------SCATTER PLOT
+
+# Define the Darjeeling palette
+darjeeling_palette <- c("#009E73", "#FF3300", "#56B4E9")
+
+# Recode the Class variable using CODE_NAME
+df <- df %>%
+  mutate(Class = recode(Class,
+                        "1" = "Grass_reeds",
+                        "2" = "Domesticated_cereals",
+                        "3" = "Threshing_sledges"))
+
+# Create the scatter plot
+scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = centroids, aes(x = LD1, y = LD2), 
+             size = 4, shape = 22, stroke = 0.5, color = "black", fill = darjeeling_palette) + 
+  labs(x = "LD1", y = "LD2", title = "Canonical Discriminant Classification") +
+  scale_color_manual(name = "Class", values = darjeeling_palette,
+                     labels = c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges")) +  
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/Figure_9_scatter_plot.jpg"
+
+# Save the scatter plot as a JPG image
+ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(scatter_plot_allvar)
+
+
+#--------------------------------------------------TEST MODEL ACCURACY
+
+# Split the dataset into training and testing sets
+set.seed(123)  # For reproducibility
+index <- createDataPartition(selected_training_data_clean$CODE_COD, p = 0.7, list = FALSE)
+training_data <- selected_training_data_clean[index, ]
+testing_data <- selected_training_data_clean[-index, ]
+
+# Train the multinomial logistic regression model
+model <- multinom(CODE_COD ~ ., data = training_data)
+
+# Predict on the testing set
+predictions <- predict(model, newdata = testing_data, type = "class")
+
+# Evaluate the predictions
+confusion_matrix <- table(predictions, testing_data$CODE_COD)
+
+# Calculate accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
+
+# Calculate precision, recall, and F1 score for each class
+precision <- diag(confusion_matrix) / colSums(confusion_matrix)
+recall <- diag(confusion_matrix) / rowSums(confusion_matrix)
+f1_score <- 2 * ((precision * recall) / (precision + recall))
+
+# Calculate macro-average and micro-average of precision, recall, and F1 score
+macro_precision <- mean(precision)
+macro_recall <- mean(recall)
+macro_f1_score <- mean(f1_score)
+
+micro_precision <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_recall <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_f1_score <- 2 * ((micro_precision * micro_recall) / (micro_precision + micro_recall))
+
+# Print evaluation metrics
+print("Evaluation Metrics:")
+print(paste("Macro Precision:", macro_precision))
+print(paste("Macro Recall:", macro_recall))
+print(paste("Macro F1 Score:", macro_f1_score))
+print(paste("Micro Precision:", micro_precision))
+print(paste("Micro Recall:", micro_recall))
+print(paste("Micro F1 Score:", micro_f1_score))
+
+# Print the confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S9_confusion_matrix.csv"
+
+# Save the predictions as a CSV file
+write.csv(confusion_matrix, file = file_path, row.names = FALSE)
+
+
+#--------------------------------------------------APPLY AT THE TEST_DATA
+
+# Select the unique set of variables that contribute the most to LD1 and LD2
+selected_variables <- unique(c(top_variables_LD1, top_variables_LD2))
+  
+# Create a subset of the test data with the selected variables
+selected_test_data <- test_data[, c(selected_variables)]
+
+# Clean rows with missing values
+selected_test_data <- selected_test_data[complete.cases(selected_test_data), ]
+  
+# Generate unique names for the variables
+unique_names <- make.unique(colnames(selected_test_data))
+  
+# Rename the variables in the selected test data
+colnames(selected_test_data) <- unique_names
+  
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model, newdata = selected_test_data)
+  
+# Extract the discriminant scores for each observation
+scores_blind <- as.data.frame(test_predictions$x)
+
+# Add the predicted class labels to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+  
+# Create a data frame with scores and class labels
+df_blind <- data.frame(scores_blind, Predicted_Class = as.factor(selected_test_data$Predicted_Class))
+
+
+#---------------------------------------------------------------CALCULATE CLASSIFICATION CONFIDENCE
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model, newdata = selected_test_data, decision.values = TRUE)
+
+# Extract the posterior probabilities for each class
+posterior_probs <- as.data.frame(test_predictions$posterior)
+
+# Calculate the confidence percentage based on the maximum posterior probability
+max_probs <- apply(posterior_probs, 1, max)
+confidence_percentages <- max_probs * 100
+
+# Add the predicted class labels and confidence percentages to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+selected_test_data$Confidence_Percentage <- confidence_percentages
+
+# Create a data frame with scores, class labels, and confidence percentages
+df_confidence <- data.frame(
+  scores_blind,
+  Predicted_Class = as.factor(selected_test_data$Predicted_Class),
+  Confidence_Percentage = selected_test_data$Confidence_Percentage
+)
+
+# Recode the Predicted_Class variable using CODE_NAME
+df_confidence <- df_confidence %>%
+  mutate(Predicted_Class = recode(Predicted_Class,
+                                  "1" = "Grass_reeds",
+                                  "2" = "Domesticated_cereals",
+                                  "3" = "Threshing_sledges"))
+
+# Combine the TOOL, Predicted_Class, ORIGINAL NAME, Confidence_Percentage, LD1, and LD2 columns
+predictions <- data.frame(
+  TOOL = test_data$TOOL,
+  Predicted_Class = test_predictions$class,
+  ORIGINAL_NAME = test_data$ORIGINAL_NAME,
+  Confidence_Percentage = df_confidence$Confidence_Percentage,
+  LD1 = df_confidence$LD1,
+  LD2 = df_confidence$LD2
+)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S10_predictions.csv"
+
+# Save the predictions as a CSV file
+write.csv(predictions, file = file_path, row.names = FALSE)
+
+
+
+#----------------------------------------------------------------------PLOT THE TEST_DATA
+
+# Define the Darjeeling palette
+darjeeling_palette <- c("#009E73", "#FF3300", "#56B4E9")
+
+# Plotting the known and unknown individuals together
+  scatter_plot_test <- ggplot() +
+    geom_point(data = df, aes(x = LD1, y = LD2, color = Class), shape = 21, size = 1.8, stroke = 0.5) +
+    geom_point(data = df_blind, aes(x = LD1, y = LD2), shape = 5, size = 0.9, stroke = 0.2, color = "black") +
+    labs(x = "LD1", y = "LD2", title = "Blind Classification") +
+    scale_color_manual(name = "Predicted_Class", values = darjeeling_palette,
+                       labels = c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges")) +  
+    theme(panel.background = element_rect(fill = "#FFFFFF"),
+    panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.4),
+    panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.4)) +
+    theme_minimal()
+  
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/Figure_10_scatter_plot_test.jpg"
+  
+# Print and save the scatter plot as a JPG image
+print(scatter_plot_test)
+ggsave(file = file_path, plot = scatter_plot_test, width = 10, height = 6, dpi = 600)
+ 
+
+
+#-------------------------------------------------------------IDENTIFYING CLASSIFICATION AT TOOL LEVEL
+  
+# Create a cross-tabulation of Predicted_Class and TOOL
+cross_tab_pred <- table(predictions$Predicted_Class, predictions$TOOL)
+  
+# Calculate the percentage of individuals in each class for each TOOL
+percentage <- prop.table(cross_tab_pred, margin = 2) * 100
+
+# Combine counts and percentages
+cross_tab_pred_combined <- cbind(cross_tab_pred, percentage)
+
+# Rename the row and column names to match the previous table
+rownames(cross_tab_pred_combined)[1:3] <- c("Grass_reeds", "Domesticated_cereals", "Threshing_sledges")
+  
+# Print the percentage table
+print(cross_tab_pred_combined)
+  
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S12_test_results.csv"
+  
+# Save the cross table as a CSV file
+write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
+
+# Calculate the percentage of individuals in Class 3
+percentage_class3 <- percentage[3, ]
+  
+# Select the individuals with more than 50% for Class 3
+selected_individuals <- percentage_class3[percentage_class3 > 50]
+  
+# Print the selected individuals
+print(selected_individuals)
+
+
+  
+#---------------------------------------------TESTING ARCHAEOLOGICAL THRESHING SLEDGES AGAINST EXPERIMENTAL ONES  
+
+# Load necessary packages
+library(readxl)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+
+# Specify the file path
+file_path <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\RAWDATA\\Dataset_only_threshing.xlsx"
+
+# Read the Excel file
+data2 <- read_excel(file_path)
+
+# Split the data into training and test based on the values in column "CAT"
+training_data2 <- data2[data2$CAT == 2, ]
+test_data2 <- data2[data2$CAT == 1, ]
+
+# Specify the numerical predictors
+numerical_predictors <- c("Sq",	"Ssk",	"Sku",	"Sp",	"Sv",	"Sz",	"Sa",	"Smrc",	"Smc",	"Sxp",	"Sal",	"Strs",	"Std",	"Sdq", "Sha", "Sds", "Sfd",	"Sdr",	"Vm",	"Vv",	"Vmp",	"Vmc",	"Vvc",	"Vvv",	"Spd",	"Spc",	"S10z",	"S5p",	"S5v",	"Sda",	"Sdv",	"Shv",	"Sk",	"Spk",	"Svk",	"Smr1",	"Sdar",	"Spar",	"St",	"SWt",	"Stdi",	"Ssc",	"Sdc",	"Sbi",	"Sci",	"Svi",	"Profundidadmax",	"Profundidadmed",	"Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data2 <- training_data2[, c("CODE_COD", "ORIGINAL_NAME", numerical_predictors)]
+
+# Remove rows with missing values
+selected_training_data2_clean <- na.omit(selected_training_data2)
+
+# Calculate standard deviations and identify constant variables
+standard_deviations <- apply(selected_training_data2_clean[, numerical_predictors], 2, sd)
+constant_vars <- numerical_predictors[standard_deviations < 1e-10]  # Adjust the threshold if needed
+
+# Remove constant variables from the dataset
+selected_training_data2_clean <- selected_training_data2_clean[, !names(selected_training_data2_clean) %in% constant_vars]
+
+# Update numerical_predictors by excluding constant variables
+numerical_predictors <- setdiff(numerical_predictors, constant_vars)
+
+# Calculate variances and filter non-zero variance predictors
+variances <- apply(selected_training_data2_clean[, numerical_predictors], 2, var)
+non_zero_var_predictors <- numerical_predictors[variances > 0]
+
+# Perform correlation tests and extract p-values for non-zero variance predictors
+p_values <- numeric(length(non_zero_var_predictors))
+for (i in 1:length(non_zero_var_predictors)) {
+  x <- as.numeric(selected_training_data2_clean[[non_zero_var_predictors[i]]])
+  y <- as.numeric(selected_training_data2_clean$CODE_COD)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Display the p-values or take further actions based on the results
+print(p_values)
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
+
+# Select predictors with low p-values
+selected_predictors <- p_values_df$Predictor[p_values_df$P_Value <= 0.005]
+
+# Subset training data with selected predictors
+selected_training_data2_clean <- selected_training_data2_clean[, c("CODE_COD", selected_predictors)]
+
+# Specify the correlation threshold
+correlation_threshold <- 0.7
+
+# Identify correlations between predictors
+cor_matrix <- cor(selected_training_data2_clean[, selected_predictors])
+
+# Find highly correlated pairs
+highly_correlated_pairs <- which(cor_matrix > correlation_threshold & cor_matrix < 1, arr.ind = TRUE)
+
+# Perform correlation-based variable selection only if there are highly correlated pairs
+if (nrow(highly_correlated_pairs) > 0) {
+  predictors_to_remove <- c()
+  for (i in 1:nrow(highly_correlated_pairs)) {
+    pair <- highly_correlated_pairs[i, ]
+    predictor1 <- selected_predictors[pair[1]]
+    predictor2 <- selected_predictors[pair[2]]
+    
+    # Create temporary models to compare significance
+    temp_model1 <- lm(CODE_COD ~ ., data = selected_training_data2_clean[, c("CODE_COD", predictor1)])
+    temp_model2 <- lm(CODE_COD ~ ., data = selected_training_data2_clean[, c("CODE_COD", predictor2)])
+    
+    # Compare p-values
+    p_value1 <- summary(temp_model1)$coefficients[2, "Pr(>|t|)"]
+    p_value2 <- summary(temp_model2)$coefficients[2, "Pr(>|t|)"]
+    
+    # Keep the predictor with the lower p-value and remove the other one
+    if (p_value1 < p_value2) {
+      predictors_to_remove <- c(predictors_to_remove, predictor2)
+    } else {
+      predictors_to_remove <- c(predictors_to_remove, predictor1)
+    }
+  }
+  
+  # Remove less significant predictors from selected_predictors
+  selected_predictors <- setdiff(selected_predictors, predictors_to_remove)
+}
+
+# Subsetting training data with the most significant predictors
+selected_training_data2_clean <- selected_training_data2_clean[, c("CODE_COD", selected_predictors)]
+
+# Perform Canonical Discriminant Analysis on the second dataset
+cda_model2 <- lda(CODE_COD ~ ., data = selected_training_data2_clean)
+scores2 <- predict(cda_model2)$x
+
+# Create a data frame with scores and class labels for the second dataset
+df2 <- data.frame(scores2, Class = as.factor(selected_training_data2_clean$CODE_COD))
+
+# Define a custom color palette based on the Darjeeling palette
+darjeeling_palette <- c("#FDB419", "#B3DE19", "#80B1F3", "#D99999", "#8DD3C7",
+                        "#F8886F", "#BC80BD", "#CCFCC5", "#F95679", "#F1111F")
+
+# Compute centroids
+centroids <- df2 %>%
+  group_by(Class) %>%
+  summarize(mean_LD1 = mean(LD1), mean_LD2 = mean(LD2))
+
+# Create a scatter plot for the training data of the second dataset
+scatter_plot_training2 <- ggplot(df2, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = centroids, aes(x = mean_LD1, y = mean_LD2), 
+             shape = 22, size = 4, stroke = 0.5, fill = darjeeling_palette[1:length(unique(df2$Class))],
+             color = "black") +  # Filled centroids with black outline
+  labs(x = "LD1", y = "LD2", title = "Canonical Discriminant Classification - Training Data (Dataset 2)") +
+  scale_color_manual(name = "Class", values = darjeeling_palette,
+                     labels = c("Bulgaria", "Catalonia", "Creta", "Cyprus", "EthnoPatty",
+                                "ExpPatty", "Greece", "Navarra", "Ukraine", "Asturias")) +
+  xlim(-5, 8) + ylim(-4, 4.5) +  # Set axis limits
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm"))  # Adjust margins
+
+# Print and display the scatter plot for the training data
+print(scatter_plot_training2)
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/Figure_11_scatter_plot_treshing.jpg"
+
+# Print and save the scatter plot as a JPG image
+ggsave(file = file_path, plot = scatter_plot_training2, width = 10, height = 6, dpi = 600)
+
+
+
+
+#--------------------------------------------------Use the trained CDA model to classify the test data
+
+# Use the trained CDA model to classify the test data
+test_predictions2 <- predict(cda_model2, newdata = test_data2)
+
+# Add the predicted class labels to the test data
+test_data2$Predicted_Class <- test_predictions2$class
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S13_threshing.csv"
+
+# Save the predictions as a CSV file
+write.csv(test_data2, file = file_path, row.names = FALSE)
+
+# Create a cross table
+cross_table <- table(test_data2$TOOL, test_data2$Predicted_Class)
+print(cross_table)
+
+# Compute row percentages
+row_percentages <- prop.table(cross_table, margin = 1) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+row_percentages_with_margins <- addmargins(row_percentages, margin = 1)
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, row_percentages_with_margins)
+print(cross_table_combined)
+
+# Rename the row and column names
+colnames(cross_table_combined)[1:10] <- c("Bulgaria", "Catalonia", "Creta", "Cyprus", "EthnoPatty", "ExpPatty", "Greece", "Navarra", "Ukraine", "Asturias")
+colnames(cross_table_combined)[11] <- "Sum"
+colnames(cross_table_combined)[12:21] <- c("Bulgaria", "Catalonia", "Creta", "Cyprus", "EthnoPatty", "ExpPatty", "Greece", "Navarra", "Ukraine", "Asturias")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/S14_crosstab.csv"
+
+# Save the modified cross table as a CSV file
+write.csv(cross_table_combined, file = file_path)
+
+
+
+#---------------------------------------------------------------PLOTTING ARCHAEOLOGICAL DATA
+
+# Calculate scores for the test data using the trained LDA model
+scores_test <- predict(cda_model2, newdata = test_data2)$x
+
+# Create a data frame for the test data with scores and class labels
+df_test <- data.frame(scores_test, Class = as.factor(test_data2$CODE_COD))
+
+# Combine training and test data frames
+combined_df <- rbind(df2, df_test)
+
+# Define the recoding mapping
+class_mapping <- c("1" = "Bulgaria", 
+                   "2" = "Catalonia", 
+                   "3" = "Creta",
+                   "4" = "Cyprus",
+                   "5" = "EthnoPatty",
+                   "6" = "ExpPatty", 
+                   "7" = "Greece",
+                   "8" = "Navarra",
+                   "9" = "Ukraine",
+                   "10" = "Asturias")
+
+# Recode the Class variable
+combined_df <- combined_df %>%
+  mutate(Class = factor(Class, levels = names(class_mapping), labels = class_mapping))
+
+# Convert Class to character and assign "ArchTools"
+combined_df$Class <- as.character(combined_df$Class)
+combined_df$Class[is.na(combined_df$Class)] <- "ArchTools"
+
+# Define custom shapes for each class
+shape_mapping <- c(Asturias = 21, Bulgaria = 21, Catalonia = 21, Creta = 21, Cyprus = 21, 
+                   EthnoPatty = 21, ExpPatty = 21, Greece = 21, Navarra = 21, 
+                   Ukraine = 21, ArchTools = 42)
+
+# Define a custom color palette based on the Darjeeling palette
+darjeeling_palette <- c("#FDB419", "#B3DE19", "#80B1F3", "#D99999", "#8DD3C7",
+                        "#F8886F", "#BC80BD", "#CCFCC5", "#F95679", "#F1111F", "#000000")
+
+# Define custom colors for each class, including "ArchTools"
+color_mapping <- c(Bulgaria = darjeeling_palette[1], 
+                   Catalonia = darjeeling_palette[2], 
+                   Creta = darjeeling_palette[3], 
+                   Cyprus = darjeeling_palette[4], 
+                   EthnoPatty = darjeeling_palette[5], 
+                   ExpPatty = darjeeling_palette[6], 
+                   Greece = darjeeling_palette[7], 
+                   Navarra = darjeeling_palette[8], 
+                   Ukraine = darjeeling_palette[9], 
+                   Asturias = darjeeling_palette[10], 
+                   "ArchTools" = "#000000")
+
+# Manually reorder the factor levels based on your desired order
+combined_df$Class <- factor(combined_df$Class, levels = c("Asturias", "Bulgaria", "Catalonia", "Creta", "Cyprus",
+                                                          "EthnoPatty", "ExpPatty", "Greece", "Navarra",
+                                                          "Ukraine", "ArchTools"))
+
+# Define the order of classes for the legend
+legend_order <- c("Bulgaria", "Catalonia", "Creta", "Cyprus", "EthnoPatty",
+                  "ExpPatty", "Greece", "Navarra", "Ukraine", "Asturias", "ArchTools")
+
+# Create a scatter plot for the training and test data
+scatter_plot_combined <- ggplot(combined_df, aes(x = LD1, y = LD2, color = Class, shape = Class)) +
+  geom_point(size = 1.8, stroke = 0.5) +
+  labs(x = "LD1", y = "LD2", title = "Canonical Discriminant Classification - Training and Test Data") +
+  scale_color_manual(values = color_mapping, limits = legend_order)  +
+  scale_shape_manual(values = shape_mapping, limits = legend_order)  +
+  guides(shape = guide_legend(override.aes = list(shape = shape_mapping))) +
+  xlim(-5, 8) + ylim(-4, 4.5) +  # Set axis limits
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm"))  # Adjust margins
+
+# Display the combined scatter plot
+print(scatter_plot_combined)
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/Figure_12_scatter_plot_combined.jpg"
+
+# Print and save the scatter plot as a JPG image
+ggsave(file = file_path, plot = scatter_plot_combined, width = 10, height = 6, dpi = 600)
