@@ -1441,4 +1441,3 @@ file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_14_scatter_plot_com
 
 # Print and save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_combined, width = 10, height = 6, dpi = 600)
-
