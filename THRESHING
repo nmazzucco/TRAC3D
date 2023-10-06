@@ -19,7 +19,7 @@ library(caret)
 library(nnet)
 
 # Specify the file path
-file_path <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\RAWDATA\\S1a_Dataset_all.xlsx"
+file_path <- "C:/folder_name/rawdata/S1a_Dataset_all.xlsx"
 
 # Read the Excel file
 data <- read_excel(file_path)
@@ -29,8 +29,8 @@ training_data <- data[data$CAT == 2, ]
 test_data <- data[data$CAT == 1, ]
 
 # Specify the file paths for the training and test files
-training_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\training.xlsx"
-test_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\test.xlsx"
+training_file <- "C:/folder_name/training.xlsx"
+test_file <- "C:/folder_name/test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
@@ -62,7 +62,7 @@ numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
 print(zero_variance_vars)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S2_zero_variances_vars.csv"
+file_path <- "C:/folder_name/S2_zero_variances_vars.csv"
 
 # Save the cross table as a CSV file
 write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
@@ -83,7 +83,7 @@ print(numerical_predictors)
 cor_matrix <- cor(selected_training_data_clean[, non_zero_var_predictors])
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S3_cor_matrix.csv"
+file_path <- "C:/folder_name/S3_cor_matrix.csv"
 
 # Save the cross table as a CSV file
 write.csv(cor_matrix, file = file_path, row.names = TRUE)
@@ -107,7 +107,7 @@ print(p_values)
 p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
 
 # Define the file path and name for the p-values CSV file
-file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S4_p_values.csv"
+file_path_pvalues <- "C:/folder_name/S4_p_values.csv"
 
 # Save the data frame as a CSV file
 write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
@@ -220,11 +220,11 @@ selected_variables <- setdiff(colnames(selected_training_data_clean), "CODE_COD"
 print(selected_variables)
 
 # Save the selected predictors to a new CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S5_selected_predictors.csv"
+file_path <- "C:/folder_name/S5_selected_predictors.csv"
 write.csv(selected_variables, file = file_path, row.names = FALSE)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S6_selected_training_data_clean.csv"
+file_path <- "C:/folder_name/S6_selected_training_data_clean.csv"
 
 # Save the cross table as a CSV file
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
@@ -285,7 +285,7 @@ coefficients_transposed <- t(coefficients)
 print(coefficients_transposed)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S7_variables_contributions.csv"
+file_path <- "C:/folder_name/S7_variables_contributions.csv"
 
 # Save the cross table as a CSV file
 write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
@@ -340,7 +340,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S8_results_training_all_var.csv"
+file_path <- "C:/folder_name/S8_results_training_all_var.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
@@ -372,7 +372,7 @@ scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_9_scatter_plot.jpg"
+file_path <- "C:/folder_name/Figure_9_scatter_plot.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
@@ -430,7 +430,7 @@ print("Confusion Matrix:")
 print(confusion_matrix)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S9_confusion_matrix.csv"
+file_path <- "C:/folder_name/S9_confusion_matrix.csv"
 
 # Save the predictions as a CSV file
 write.csv(confusion_matrix, file = file_path, row.names = FALSE)
@@ -509,7 +509,7 @@ predictions <- data.frame(
 )
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S10_predictions.csv"
+file_path <- "C:/folder_name/S10_predictions.csv"
 
 # Save the predictions as a CSV file
 write.csv(predictions, file = file_path, row.names = FALSE)
@@ -534,7 +534,7 @@ scatter_plot_test <- ggplot() +
   theme_minimal()
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_10_scatter_plot_test.jpg"
+file_path <- "C:/folder_name/Figure_10_scatter_plot_test.jpg"
 
 # Print and save the scatter plot as a JPG image
 print(scatter_plot_test)
@@ -560,7 +560,7 @@ rownames(cross_tab_pred_combined)[1:3] <- c("Grass_reeds", "Domesticated_cereals
 print(cross_tab_pred_combined)
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S11_test_results.csv"
+file_path <- "C:/folder_name/S11_test_results.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
@@ -579,7 +579,7 @@ print(selected_individuals)
 
 
 # Specify the file path
-file_path <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\RAWDATA\\S1b_Dataset_all_EXP15.xlsx"
+file_path <- "C:/folder_name/rawdata/S1b_Dataset_all_EXP15.xlsx"
 
 # Read the Excel file
 data <- read_excel(file_path)
@@ -589,8 +589,8 @@ training_data <- data[data$CAT == 2, ]
 test_data <- data[data$CAT == 1, ]
 
 # Specify the file paths for the training and test files
-training_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\training.xlsx"
-test_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\test.xlsx"
+training_file <- "C:/folder_name/training.xlsx"
+test_file <- "C:/folder_name/test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
@@ -626,7 +626,7 @@ numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
 print(zero_variance_vars)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S12_zero_variances_vars.csv"
+file_path <- "C:/folder_name/S12_zero_variances_vars.csv"
 
 # Save the cross table as a CSV file
 write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
@@ -647,7 +647,7 @@ print(numerical_predictors)
 cor_matrix <- cor(selected_training_data_clean[, non_zero_var_predictors])
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S13_cor_matrix.csv"
+file_path <- "C:/folder_name/S13_cor_matrix.csv"
 
 # Save the cross table as a CSV file
 write.csv(cor_matrix, file = file_path, row.names = TRUE)
@@ -671,7 +671,7 @@ print(p_values)
 p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
 
 # Define the file path and name for the p-values CSV file
-file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S14_p_values.csv"
+file_path_pvalues <- "C:/folder_name/S14_p_values.csv"
 
 # Save the data frame as a CSV file
 write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
@@ -789,11 +789,11 @@ selected_variables <- setdiff(colnames(selected_training_data_clean), "CODE_COD"
 print(selected_variables)
 
 # Save the selected predictors to a new CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S15_selected_predictors.csv"
+file_path <- "C:/folder_name/S15_selected_predictors.csv"
 write.csv(selected_variables, file = file_path, row.names = FALSE)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S16_selected_training_data_clean.csv"
+file_path <- "C:/folder_name/S16_selected_training_data_clean.csv"
 
 # Save the cross table as a CSV file
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
@@ -854,7 +854,7 @@ coefficients_transposed <- t(coefficients)
 print(coefficients_transposed)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S17_variables_contributions.csv"
+file_path <- "C:/folder_name/S17_variables_contributions.csv"
 
 # Save the cross table as a CSV file
 write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
@@ -921,7 +921,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S18_results_training_all_var.csv"
+file_path <- "C:/folder_name/S18_results_training_all_var.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
@@ -954,7 +954,7 @@ scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_11_scatter_plot.jpg"
+file_path <- "C:/folder_name/Figure_11_scatter_plot.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
@@ -1012,7 +1012,7 @@ print("Confusion Matrix:")
 print(confusion_matrix)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S19_confusion_matrix.csv"
+file_path <- "C:/folder_name/S19_confusion_matrix.csv"
 
 # Save the predictions as a CSV file
 write.csv(confusion_matrix, file = file_path, row.names = FALSE)
@@ -1092,7 +1092,7 @@ predictions <- data.frame(
 )
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S20_predictions.csv"
+file_path <- "C:/folder_name/S20_predictions.csv"
 
 # Save the predictions as a CSV file
 write.csv(predictions, file = file_path, row.names = FALSE)
@@ -1117,7 +1117,7 @@ scatter_plot_test <- ggplot() +
   theme_minimal()
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_12_scatter_plot_test.jpg"
+file_path <- "C:/folder_name/Figure_12_scatter_plot_test.jpg"
 
 # Print and save the scatter plot as a JPG image
 print(scatter_plot_test)
@@ -1143,7 +1143,7 @@ rownames(cross_tab_pred_combined)[1:4] <- c("Grass_reeds", "Domesticated_cereals
 print(cross_tab_pred_combined)
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S21_test_results.csv"
+file_path <- "C:/folder_name/S21_test_results.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
@@ -1168,7 +1168,7 @@ library(ggplot2)
 library(dplyr)
 
 # Specify the file path
-file_path <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\RAWDATA\\S12_Dataset_only_threshing.xlsx"
+file_path <- "C:/folder_name/rawdata/S12_Dataset_only_threshing.xlsx"
 
 # Read the Excel file
 data2 <- read_excel(file_path)
@@ -1302,7 +1302,7 @@ scatter_plot_training2 <- ggplot(df2, aes(x = LD1, y = LD2, color = Class)) +
 print(scatter_plot_training2)
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_13_scatter_plot_treshing.jpg"
+file_path <- "C:/folder_name/Figure_13_scatter_plot_treshing.jpg"
 
 # Print and save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_training2, width = 10, height = 6, dpi = 600)
@@ -1319,7 +1319,7 @@ test_predictions2 <- predict(cda_model2, newdata = test_data2)
 test_data2$Predicted_Class <- test_predictions2$class
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S22_threshing.csv"
+file_path <- "C:/folder_name/S22_threshing.csv"
 
 # Save the predictions as a CSV file
 write.csv(test_data2, file = file_path, row.names = FALSE)
@@ -1348,7 +1348,7 @@ colnames(cross_table_combined)[13:23] <- c("Bulgaria", "Catalonia", "Creta", "Cy
 print(cross_table_combined)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S23_crosstab.csv"
+file_path <- "C:/folder_name/S23_crosstab.csv"
 
 # Save the modified cross table as a CSV file
 write.csv(cross_table_combined, file = file_path)
@@ -1437,7 +1437,7 @@ scatter_plot_combined <- ggplot(combined_df, aes(x = LD1, y = LD2, color = Class
 print(scatter_plot_combined)
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/Figure_14_scatter_plot_combined.jpg"
+file_path <- "C:/folder_name/Figure_14_scatter_plot_combined.jpg"
 
 # Print and save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_combined, width = 10, height = 6, dpi = 600)
