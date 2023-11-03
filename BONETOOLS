@@ -1,0 +1,1180 @@
+# Load the required libraries
+library(readxl)
+library(openxlsx)
+library(ggplot2)
+library(dplyr)
+library(writexl)
+library(MASS)
+library(caret)
+library(nnet)
+
+# Specify the file path
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/RAWDATA/Dataset1.txt"
+
+# Read the Excel file
+data <- read.csv(file_path, sep='\t') 
+
+# Split the data into training and test based on the values in column "CAT"
+training_data <- data[data$CAT == 2, ]
+test_data <- data[data$CAT == 1, ]
+
+# Specify the file paths for the training and test files
+training_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\training.xlsx"
+test_file <- "C:\\Users\\nicco\\R\\TRAC3D\\THRESHING\\PROVA\\test.xlsx"
+
+# Write the training data to a new Excel file
+write.xlsx(training_data, file = training_file, rownames = FALSE)
+
+# Write the test data to a new Excel file
+write.xlsx(test_data, file = test_file, rownames = FALSE)
+
+# Eliminate columns with null values
+cols_to_remove <- sapply(training_data, function(x) any(x == "*****"))
+training_data_clean <- training_data[, !cols_to_remove]
+
+# Get column names
+column_names <- names(training_data_clean)
+
+# Get the first row values
+first_row_values <- data[1, ]
+
+# Displaying results
+cat("Column Names:\n")
+print(column_names)
+
+# Extract the MAT2 and NUM columns from the original data
+code_orig_names <- training_data_clean[, c("MAT2", "ID", "NUM", "ZONE")]
+
+# Specify the numerical predictors
+numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv", "Sz", "Sa", "Smr", "Smc", 
+                          "Sxp", "Sal", "Str", "Std", "Vm", "Vv", "Vmp", "Vmc", "Vvc",
+                          "Vvv", "Spd", "Spc", "Sk", "Spk", "Svk", "Smr1", "Smr2", "Sdc",
+                          "Sbi", "Sci", "Svi", "Smean", "Spar", "SWt", "Stdi", 
+                          "Profundidadmax", "Profundidadmed", "Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data <- training_data_clean[, c("MAT2", "NUM", numerical_predictors)]
+
+# Remove rows with missing values
+selected_training_data_clean <- na.omit(selected_training_data)
+anyNA(selected_training_data)
+
+# Calculate the variances of each column
+variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var)
+
+# Filter numerical predictors based on non-zero variance
+non_zero_var_predictors <- numerical_predictors[variances > 0]
+variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var)
+zero_variance_vars <- numerical_predictors[variances == 0]
+numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
+print(zero_variance_vars)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S2_zero_variances_vars.csv"
+
+# Save the cross table as a CSV file
+write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
+selected_training_data_clean <- selected_training_data_clean[, !(colnames(selected_training_data_clean) %in% zero_variance_vars)]
+numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
+non_zero_var_predictors <- setdiff(non_zero_var_predictors, zero_variance_vars)
+
+# Remove rows with missing values
+non_zero_var_predictors <- na.omit(non_zero_var_predictors)
+numerical_predictors <- na.omit(numerical_predictors)
+print(numerical_predictors)
+
+
+###############################################################ELIMINATE PREDICTORS WITH LOW P-VALUES
+
+# Exclude "MAT2" from the selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, !(colnames(selected_training_data_clean) %in% c("MAT2", "NUM"))]
+print(head(selected_training_data_clean))
+
+# Calculate the correlation matrix
+cor_matrix <- cor(selected_training_data_clean)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S3_cor_matrix.csv"
+
+# Save the cross table as a CSV file
+write.csv(cor_matrix, file = file_path, row.names = TRUE)
+
+# Create an empty vector to store p-values
+p_values <- numeric(length(numerical_predictors))
+
+# Include again "MAT2" to the selected_training_data_clean
+selected_training_data_clean <- training_data_clean[, c("MAT2", numerical_predictors)]
+print(head(selected_training_data_clean))
+
+# Iterate through each predictor
+for (i in 1:length(numerical_predictors)) {
+  # Perform correlation test and extract the p-value
+  x <- as.numeric(selected_training_data_clean[[numerical_predictors[i]]])
+  y <- as.numeric(selected_training_data_clean$MAT2)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Print or view the p-values
+print(p_values)
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
+
+# Define the file path and name for the p-values CSV file
+file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S4_p_values.csv"
+
+# Save the data frame as a CSV file
+write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
+
+# Specify the outcome variable
+outcome_var <- "MAT2"
+
+# Create an empty vector to store the predictors to remove
+predictors_to_remove <- character(0)
+
+# Iterate through each predictor
+for (i in 1:length(p_values)) {
+  # Check if the p-value is greater than 0.005
+  if (p_values[i] > 0.05) {
+    # Add the predictor name to the vector of predictors to remove
+    predictors_to_remove <- c(predictors_to_remove, numerical_predictors[i])
+  }
+}
+
+# Check if both variables are numeric
+for (predictor in colnames(selected_training_data_clean)[-1]) {
+  if (!is.numeric(selected_training_data_clean[[predictor]])) {
+    cat(predictor, "is not numeric. It's", class(selected_training_data_clean[[predictor]]), "\n")
+  }
+  if (!is.numeric(selected_training_data_clean[[outcome_var]])) {
+    cat(outcome_var, "is not numeric. It's", class(selected_training_data_clean[[outcome_var]]), "\n")
+    break 
+  }
+}
+
+# Create an empty data frame to store the results
+univariate_result_df <- data.frame(Predictor = character(0), P_Value = numeric(0), stringsAsFactors = FALSE)
+
+# Iterate through each predictor
+for (predictor in colnames(selected_training_data_clean)[-1]) {
+  # Perform t-test and extract the p-value
+  p_value <- t.test(selected_training_data_clean[[predictor]], selected_training_data_clean[[outcome_var]])$p.value
+  
+  # Add the predictor and p-value to the data frame
+  univariate_result_df <- rbind(univariate_result_df, data.frame(Predictor = predictor, P_Value = p_value, stringsAsFactors = FALSE))
+}
+
+# Remove the predictors from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% predictors_to_remove)]
+
+# Extract the updated_predictors
+updated_predictors <- tail(colnames(selected_training_data_clean)[-1], 11)
+
+# Subset the data to include only the updated predictors
+selected_training_data_clean_copy <- selected_training_data_clean[, c("MAT2", updated_predictors)]
+
+
+
+
+###########################################################ELIMINATE CORRELATED PREDICTORS
+
+# Calculate the correlation matrix
+cor_matrix_updated_predictors <- cor(selected_training_data_clean_copy)
+
+# Identify correlations greater than 0.8
+high_correlations <- which(cor_matrix_updated_predictors > 0.8 & cor_matrix_updated_predictors < 1, arr.ind = TRUE)
+
+# Print the pairs of highly correlated predictors
+if (length(high_correlations) > 0) {
+  for (i in 1:nrow(high_correlations)) {
+    row_idx <- high_correlations[i, 1]
+    col_idx <- high_correlations[i, 2]
+    predictor1 <- rownames(cor_matrix_updated_predictors)[row_idx]
+    predictor2 <- colnames(cor_matrix_updated_predictors)[col_idx]
+    correlation <- cor_matrix_updated_predictors[row_idx, col_idx]
+    cat("Predictor", predictor1, "and", predictor2, "are highly correlated with a correlation of", correlation, "\n")
+  }
+} else {
+  cat("No predictors are highly correlated (correlation > 0.8).\n")
+}
+
+# Function to remove correlated predictors
+remove_correlated_predictors <- function(data, cor_matrix, threshold = 0.8) {
+  correlated_features <- which(cor_matrix > threshold & cor_matrix < 1, arr.ind = TRUE)
+  
+  removed_predictors <- character()
+  for (i in 1:nrow(correlated_features)) {
+    feature1 <- rownames(cor_matrix)[correlated_features[i, 1]]
+    feature2 <- colnames(cor_matrix)[correlated_features[i, 2]]
+    
+    if (!(feature1 %in% removed_predictors) && !(feature2 %in% removed_predictors) && feature1 != feature2) {
+      correlation <- cor_matrix[correlated_features[i, 1], correlated_features[i, 2]]
+      cat(sprintf("Predictor %s and %s are highly correlated with a correlation of %.7f\n", feature1, feature2, correlation))
+      
+      pvalue1 <- anova(lm(data[[feature1]] ~ data[[feature2]]))$`Pr(>F)`[1]
+      pvalue2 <- anova(lm(data[[feature2]] ~ data[[feature1]]))$`Pr(>F)`[1]
+      
+      if (pvalue1 < pvalue2) {
+        data <- data[, !colnames(data) %in% feature1]
+        removed_predictors <- c(removed_predictors, feature1)
+      } else {
+        data <- data[, !colnames(data) %in% feature2]
+        removed_predictors <- c(removed_predictors, feature2)
+      }
+    }
+  }
+  
+  return(list(data = data, removed_predictors = removed_predictors))
+}
+
+
+result <- remove_correlated_predictors(selected_training_data_clean_copy, cor_matrix_updated_predictors)
+selected_training_data_clean <- result$data
+print(head(selected_training_data_clean))
+removed_predictors <- result$removed_predictors
+
+if (length(removed_predictors) > 0) {
+  print(removed_predictors)
+  # Save the removed predictors to a new CSV file
+  file_path_removed <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S7_removed_predictors.csv"
+  write.csv(removed_predictors, file = file_path_removed, row.names = FALSE)
+} else {
+  cat("No predictors were removed.\n")
+}
+
+# Store selected predictors
+selected_variables <- setdiff(colnames(selected_training_data_clean), "MAT2")
+print(selected_variables)
+
+# Save the selected predictors to a new CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S5_selected_predictors.csv"
+write.csv(selected_variables, file = file_path, row.names = FALSE)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S6_selected_training_data_clean.csv"
+
+# Save the cross table as a CSV file
+write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+
+
+
+#----------------------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(MAT2 ~ ., data = selected_training_data_clean)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean$MAT2))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (MAT2) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+
+#----------------------------------------------------------------------STRUCTURE MATRIX
+
+# Exclude MAT2 and Prediction variables
+variables <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% c("MAT2", "Prediction"))]
+
+# Convert variables to numeric format
+variables <- as.data.frame(sapply(variables, as.numeric))
+
+# Get the canonical function matrix
+canonical_functions <- cda_model$scaling
+
+# Transpose the canonical_functions matrix
+canonical_functions_transposed <- t(canonical_functions)
+
+# Get the coefficients for each variable in the canonical discriminant functions
+coefficients <- canonical_functions_transposed
+
+# Transpose the coefficients matrix for printing
+coefficients_transposed <- t(coefficients)
+
+# Print the ordered variables with their contributions and coefficients
+print(coefficients_transposed)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S7_variables_contributions.csv"
+
+# Save the cross table as a CSV file
+write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
+
+# Extract the coefficients for LD1 
+coeff_LD1 <- coefficients["LD1", ]
+
+# Sort the absolute values of the coefficients in descending order
+sorted_LD1 <- sort(abs(coeff_LD1), decreasing = TRUE)
+
+print(sorted_LD1)
+
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean$MAT2, selected_training_data_clean$Prediction)
+
+# Compute row percentages
+row_percentages <- prop.table(cross_table, margin = 1) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+row_percentages_with_margins <- addmargins(row_percentages, margin = 1)
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, row_percentages_with_margins)
+
+# Rename the row and column names
+rownames(cross_table_combined)[1:2] <- c("TECN", "USED")
+colnames(cross_table_combined)[1:2] <- c("TECN", "USED")
+colnames(cross_table_combined)[3] <- "Sum"
+colnames(cross_table_combined)[4:5] <- c("TECN", "USED")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:2, 1:2])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:2, 1:2])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S8_results_training_all_var.csv"
+
+# Save the cross table as a CSV file
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+#------------------------------------------------------------------------SCATTER PLOT
+
+# Define a palette with enough colors
+my_palette <- c("#FDB419", "#80B1F3")
+
+# Assume 'Class' variable exists in your data
+# Recode 'Class' to have meaningful category names
+df <- df %>%
+  mutate(Class = recode(Class,
+                        "1" = "TECN",
+                        "2" = "USED"))
+
+# Create the density_plot
+density_plot <- ggplot(df, aes(x = LD1, fill = Class)) +
+  geom_density(alpha = 0.5) +  # Adjust alpha for better visualization if plots overlap.
+  scale_fill_manual(values = my_palette,
+                    name = "Class",
+                    labels = c("TECN", "USED")) +
+  labs(x = "LD1", y = "Density",
+       title = "Density Plot of LD1 by Class") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "#FFFFFF"),
+        panel.grid.major = element_line(color = "#999999",
+                                        linetype = "dotted",
+                                        linewidth = 0.1),  # Update to `linewidth` according to warning
+        panel.grid.minor = element_line(color = "#999999",
+                                        linetype = "dotted",
+                                        linewidth = 0.1))
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_11_density_plot.jpg"
+
+# Save the scatter plot as a JPG image
+ggsave(file = file_path, plot = density_plot, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(density_plot)
+
+
+#--------------------------------------------------TEST MODEL ACCURACY
+
+# Split the dataset into training and testing sets
+set.seed(123)  # For reproducibility
+index <- createDataPartition(selected_training_data_clean$MAT2, p = 0.7, list = FALSE)
+training_data <- selected_training_data_clean[index, ]
+testing_data <- selected_training_data_clean[-index, ]
+
+# Train the multinomial logistic regression model
+model <- multinom(MAT2 ~ ., data = training_data)
+
+# Predict on the testing set
+predictions <- predict(model, newdata = testing_data, type = "class")
+
+# Evaluate the predictions
+confusion_matrix <- table(predictions, testing_data$MAT2)
+
+# Calculate accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
+
+# Calculate precision, recall, and F1 score for each class
+precision <- diag(confusion_matrix) / colSums(confusion_matrix)
+recall <- diag(confusion_matrix) / rowSums(confusion_matrix)
+f1_score <- 2 * ((precision * recall) / (precision + recall))
+
+# Calculate macro-average and micro-average of precision, recall, and F1 score
+macro_precision <- mean(precision)
+macro_recall <- mean(recall)
+macro_f1_score <- mean(f1_score)
+micro_precision <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_recall <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_f1_score <- 2 * ((micro_precision * micro_recall) / (micro_precision + micro_recall))
+
+# Print evaluation metrics
+print("Evaluation Metrics:")
+print(paste("Macro Precision:", macro_precision))
+print(paste("Macro Recall:", macro_recall))
+print(paste("Macro F1 Score:", macro_f1_score))
+print(paste("Micro Precision:", micro_precision))
+print(paste("Micro Recall:", micro_recall))
+print(paste("Micro F1 Score:", micro_f1_score))
+
+# Print the confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S9_confusion_matrix.csv"
+
+# Save the predictions as a CSV file
+write.csv(confusion_matrix, file = file_path, row.names = FALSE)
+
+
+#--------------------------------------------------APPLY AT THE TEST_DATA
+
+# Clean rows with missing values in original data set
+columns_to_keep <- c(selected_variables, "NUM")
+test_data <- test_data[, columns_to_keep]
+test_data <- test_data[complete.cases(test_data), ]
+
+# Create a subset of the test data with the selected variables
+selected_test_data <- test_data[, c(selected_variables)]
+
+# Clean rows with missing values
+selected_test_data <- selected_test_data[complete.cases(selected_test_data), ]
+
+# Generate unique names for the variables
+unique_names <- make.unique(colnames(selected_test_data))
+
+# Rename the variables in the selected test data
+colnames(selected_test_data) <- unique_names
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model, newdata = selected_test_data)
+
+# Extract the discriminant scores for each observation
+scores_blind <- as.data.frame(test_predictions$x)
+
+# Add the predicted class labels to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+
+# Create a data frame with scores and class labels
+df_blind <- data.frame(scores_blind, Predicted_Class = as.factor(selected_test_data$Predicted_Class))
+
+
+#---------------------------------------------------------------CALCULATE CLASSIFICATION CONFIDENCE
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model, newdata = selected_test_data, decision.values = TRUE)
+
+# Extract the posterior probabilities for each class
+posterior_probs <- as.data.frame(test_predictions$posterior)
+
+# Calculate the confidence percentage based on the maximum posterior probability
+max_probs <- apply(posterior_probs, 1, max)
+confidence_percentages <- max_probs * 100
+
+# Add the predicted class labels and confidence percentages to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+selected_test_data$Confidence_Percentage <- confidence_percentages
+
+# Create a data frame with scores, class labels, and confidence percentages
+df_confidence <- data.frame(
+  scores_blind,
+  Predicted_Class = as.factor(selected_test_data$Predicted_Class),
+  Confidence_Percentage = selected_test_data$Confidence_Percentage
+)
+
+# Recode the Predicted_Class variable using CODE_NAME
+df_confidence <- df_confidence %>%
+  mutate(Predicted_Class = recode(Predicted_Class,
+                                  "1" = "TECN",
+                                  "2" = "USED"))
+
+# Combine the NUM, Predicted_Class, LD1
+predictions <- data.frame(
+  NUM = test_data$NUM,
+  Predicted_Class = test_predictions$class,
+  Confidence_Percentage = df_confidence$Confidence_Percentage,
+  LD1 = df_confidence$LD1)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S10_predictions.csv"
+
+# Save the predictions as a CSV file
+write.csv(predictions, file = file_path, row.names = FALSE)
+
+
+
+#----------------------------------------------------------------------PLOT THE TEST_DATA
+
+#Define a density plot
+my_palette <- c("TECN" = "#FDB419", "USED" = "#80B1F3", "ArchTool" = "lightgray")
+
+# Base plot.
+density_plot <- ggplot() +
+  geom_density(data = df, aes(x = LD1, fill = Class), alpha = 0.5) +
+  geom_density(data = df_confidence, aes(x = LD1, fill = "ArchTool"), alpha = 0.5) +
+  scale_fill_manual(values = my_palette, name = "Class") +
+  labs(x = "LD1", y = "Density", title = "Density Plot of LD1 by Class") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "#FFFFFF"),
+        panel.grid.major = element_line(color = "#999999", linetype = "dotted", linewidth = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", linewidth = 0.1))
+
+# Save plot.
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_12_density_plot.jpg"
+ggsave(file = file_path, plot = density_plot, width = 10, height = 6, dpi = 600)
+
+# Display plot.
+print(density_plot)
+
+
+
+
+#-----------------------------------------------------EXPLORE CLASSIFICATION OF WORKED MATERIALS
+
+# Specify the file path
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/RAWDATA/Dataset2.txt"
+
+# Read the Excel file
+data2 <- read.csv(file_path, sep='\t') 
+
+# Split the data into training and test based on the values in column "CAT"
+training_data2 <- data2[data2$CAT == 2, ]
+test_data2 <- data2[data2$CAT == 1, ]
+
+# Specify the file paths for the training and test files
+training_file2 <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/training.xlsx"
+test_file2 <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/test.xlsx"
+
+# Write the training data to a new Excel file
+write.xlsx(training_data2, file = training_file2, rownames = FALSE)
+
+# Write the test data to a new Excel file
+write.xlsx(test_data2, file = test_file2, rownames = FALSE)
+
+# Eliminate columns with null values
+cols_to_remove <- sapply(training_data2, function(x) any(x == "*****"))
+training_data_clean2 <- training_data2[, !cols_to_remove]
+
+# Get column names
+column_names <- names(training_data_clean2)
+
+# Get the first row values
+first_row_values <- data2[1, ]
+
+# Displaying results
+cat("Column Names:\n")
+print(column_names)
+
+# Extract the MAT and NUM columns from the original data
+code_orig_names <- training_data_clean2[, c("MAT", "ID", "NUM", "ZONE")]
+
+# Specify the numerical predictors
+numerical_predictors2 <- c("Sq", "Ssk", "Sku", "Sp", "Sv", "Sz", "Sa", "Smr", "Smc", 
+                          "Sxp", "Sal", "Str", "Std", "Vm", "Vv", "Vmp", "Vmc", "Vvc",
+                          "Vvv", "Spd", "Spc", "Sk", "Spk", "Svk", "Smr1", "Smr2", "Sdc",
+                          "Sbi", "Sci", "Svi", "Smean", "Spar", "SWt", "Stdi", 
+                          "Profundidadmax", "Profundidadmed", "Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data2 <- training_data_clean2[, c("MAT", "NUM", numerical_predictors2)]
+
+# Remove rows with missing values
+selected_training_data_clean2 <- na.omit(selected_training_data2)
+anyNA(selected_training_data2)
+
+# Redefining numerical_predictors
+numerical_predictors2 <- sapply(selected_training_data_clean2[1, ], is.numeric)
+numerical_predictors2 <- names(selected_training_data_clean2)[numerical_predictors2]
+
+# Calculate the variances of each column
+variances <- apply(selected_training_data_clean2[, numerical_predictors2], 2, var)
+
+# Filter numerical predictors based on non-zero variance
+non_zero_var_predictors <- numerical_predictors2[variances > 0]
+variances <- apply(selected_training_data_clean2[, numerical_predictors2], 2, var)
+zero_variance_vars <- numerical_predictors2[variances == 0]
+numerical_predictors <- setdiff(numerical_predictors2, zero_variance_vars)
+print(zero_variance_vars)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S11_zero_variances_vars.csv"
+
+# Save the cross table as a CSV file
+write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
+selected_training_data_clean2 <- selected_training_data_clean2[, !(colnames(selected_training_data_clean2) %in% zero_variance_vars)]
+numerical_predictors2 <- setdiff(numerical_predictors2, zero_variance_vars)
+non_zero_var_predictors <- setdiff(non_zero_var_predictors, zero_variance_vars)
+
+# Remove rows with missing values
+non_zero_var_predictors2 <- na.omit(non_zero_var_predictors)
+numerical_predictors2 <- na.omit(numerical_predictors)
+print(numerical_predictors2)
+
+
+###############################################################ELIMINATE PREDICTORS WITH LOW P-VALUES
+
+# Exclude "MAT" and "NUM" from the selected_training_data_clean2
+selected_training_data_clean2 <- selected_training_data_clean2[, !(colnames(selected_training_data_clean2) %in% c("MAT", "NUM"))]
+
+# Redefine numerical_predictors2 based on the remaining columns
+numerical_predictors2 <- sapply(selected_training_data_clean2, is.numeric)
+numerical_predictors2 <- names(selected_training_data_clean2)[numerical_predictors2]
+
+# Calculate the correlation matrix
+cor_matrix <- cor(selected_training_data_clean2[, numerical_predictors2])
+print(head(cor_matrix))
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S12_cor_matrix.csv"
+
+# Save the cross table as a CSV file
+write.csv(cor_matrix, file = file_path, row.names = TRUE)
+
+# Subset the training data with the numerical predictors
+selected_training_data_clean2 <- training_data_clean2[, c("MAT", numerical_predictors2)]
+
+# Create an empty vector to store p-values
+p_values <- numeric(length(numerical_predictors2))
+
+# Iterate through each predictor
+for (i in 1:length(numerical_predictors2)) {
+  # Perform correlation test and extract the p-value
+  x <- as.numeric(selected_training_data_clean2[[numerical_predictors2[i]]])
+  y <- as.numeric(selected_training_data_clean2$MAT)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Print or view the p-values
+print(p_values)
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors2, P_Value = p_values)
+
+# Define the file path and name for the p-values CSV file
+file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S13_p_values.csv"
+
+# Save the data frame as a CSV file
+write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
+
+# Specify the outcome variable
+outcome_var <- "MAT"
+
+# Create an empty vector to store the predictors to remove
+predictors_to_remove <- character(0)
+
+# Iterate through each predictor
+for (i in 1:length(p_values)) {
+  # Check if the p-value is greater than 0.005
+  if (p_values[i] > 0.05) {
+    # Add the predictor name to the vector of predictors to remove
+    predictors_to_remove <- c(predictors_to_remove, numerical_predictors2[i])
+  }
+}
+
+# Check if both variables are numeric
+for (predictor in colnames(selected_training_data_clean2)[-1]) {
+  if (!is.numeric(selected_training_data_clean2[[predictor]])) {
+    cat(predictor, "is not numeric. It's", class(selected_training_data_clean2[[predictor]]), "\n")
+  }
+  if (!is.numeric(selected_training_data_clean2[[outcome_var]])) {
+    cat(outcome_var, "is not numeric. It's", class(selected_training_data_clean2[[outcome_var]]), "\n")
+    break 
+  }
+}
+
+# Create an empty data frame to store the results
+univariate_result_df <- data.frame(Predictor = character(0), P_Value = numeric(0), stringsAsFactors = FALSE)
+
+# Iterate through each predictor
+for (predictor in colnames(selected_training_data_clean2)[-1]) {
+  # Perform t-test and extract the p-value
+  p_value <- t.test(selected_training_data_clean2[[predictor]], selected_training_data_clean2[[outcome_var]])$p.value
+  
+  # Add the predictor and p-value to the data frame
+  univariate_result_df <- rbind(univariate_result_df, data.frame(Predictor = predictor, P_Value = p_value, stringsAsFactors = FALSE))
+}
+
+# Remove the predictors from selected_training_data_clean2
+print(predictors_to_remove)
+selected_training_data_clean_copy2 <- selected_training_data_clean2[, !(names(selected_training_data_clean2) %in% predictors_to_remove)]
+print(head(selected_training_data_clean_copy2))
+
+
+###########################################################ELIMINATE CORRELATED PREDICTORS
+
+# Exclude "MAT" from the selected_training_data_clean2
+selected_training_data_clean_copy2 <- selected_training_data_clean_copy2[, !(colnames(selected_training_data_clean_copy2) %in% c("MAT"))]
+print(head(selected_training_data_clean_copy2))
+
+# Calculate the correlation matrix
+cor_matrix_updated_predictors2 <- cor(selected_training_data_clean_copy2)
+
+# Identify correlations greater than 0.8
+high_correlations <- which(cor_matrix_updated_predictors2 >= 0.8 & cor_matrix_updated_predictors2 < 1, arr.ind = TRUE)
+
+# Print the pairs of highly correlated predictors
+if (length(high_correlations) > 0) {
+  for (i in 1:nrow(high_correlations)) {
+    row_idx <- high_correlations[i, 1]
+    col_idx <- high_correlations[i, 2]
+    predictor1 <- rownames(cor_matrix_updated_predictors2)[row_idx]
+    predictor2 <- colnames(cor_matrix_updated_predictors2)[col_idx]
+    correlation <- cor_matrix_updated_predictors2[row_idx, col_idx]
+    cat("Predictor", predictor1, "and", predictor2, "are highly correlated with a correlation of", correlation, "\n")
+  }
+} else {
+  cat("No predictors are highly correlated (correlation > 0.8).\n")
+}
+
+remove_correlated_predictors <- function(data, cor_matrix, threshold = 0.8) {
+  correlated_features <- which(cor_matrix > threshold & cor_matrix < 1, arr.ind = TRUE)
+  
+  removed_predictors <- character()
+  if (nrow(correlated_features) > 0) {
+    for (i in 1:nrow(correlated_features)) {
+      feature1 <- rownames(cor_matrix)[correlated_features[i, 1]]
+      feature2 <- colnames(cor_matrix)[correlated_features[i, 2]]
+      
+      if (!(feature1 %in% removed_predictors) && !(feature2 %in% removed_predictors) && feature1 != feature2) {
+        correlation <- cor_matrix[correlated_features[i, 1], correlated_features[i, 2]]
+        cat(sprintf("Predictor %s and %s are highly correlated with a correlation of %.7f\n", feature1, feature2, correlation))
+        
+        pvalue1 <- anova(lm(data[[feature1]] ~ data[[feature2]]))$`Pr(>F)`[1]
+        pvalue2 <- anova(lm(data[[feature2]] ~ data[[feature1]]))$`Pr(>F)`[1]
+        
+        if (pvalue1 < pvalue2) {
+          data <- data[, !colnames(data) %in% feature1]
+          removed_predictors <- c(removed_predictors, feature1)
+        } else {
+          data <- data[, !colnames(data) %in% feature2]
+          removed_predictors <- c(removed_predictors, feature2)
+        }
+      }
+    }
+  } else {
+    cat("No highly correlated predictors found.\n")
+  }
+  
+  cat("Data dimensions after removing correlated predictors:\n")
+  print(dim(data))  # Add this line for debugging
+  
+  return(list(data = data, removed_predictors = removed_predictors))
+}
+
+result <- remove_correlated_predictors(selected_training_data_clean_copy2, cor_matrix_updated_predictors2)
+selected_training_data_clean2 <- result$data
+removed_predictors <- result$removed_predictors
+print(head(selected_training_data_clean2))
+
+if (length(removed_predictors) > 0) {
+  print(removed_predictors)
+  # Save the removed predictors to a new CSV file
+  file_path_removed <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S7_removed_predictors.csv"
+  write.csv(removed_predictors, file = file_path_removed, row.names = FALSE)
+} else {
+  cat("No predictors were removed.\n")
+}
+
+# Store selected predictors
+selected_variables2 <- setdiff(colnames(selected_training_data_clean2), "MAT")
+print(selected_variables2)
+
+# Save the selected predictors to a new CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S5_selected_predictors.csv"
+write.csv(selected_variables2, file = file_path, row.names = FALSE)
+
+# Subset the training data with the numerical predictors
+print(head(selected_training_data_clean2))
+selected_training_data_clean2 <- training_data_clean2[, c("MAT", selected_variables2)]
+print(head(selected_training_data_clean2))
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S6_selected_training_data_clean.csv"
+
+# Save the cross table as a CSV file
+write.csv(selected_training_data_clean2, file = file_path, row.names = TRUE)
+
+
+#----------------------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+# Perform Canonical Discriminant Analysis
+cda_model2 <- lda(MAT ~ ., data = selected_training_data_clean2)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model2)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean2$MAT))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (MAT2) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+
+
+#----------------------------------------------------------------------STRUCTURE MATRIX
+
+# Exclude MAT and Prediction variables
+variables <- selected_training_data_clean2[, !(names(selected_training_data_clean2) %in% c("MAT", "Prediction"))]
+
+# Convert variables to numeric format
+variables <- as.data.frame(sapply(variables, as.numeric))
+
+# Get the canonical function matrix
+canonical_functions <- cda_model2$scaling
+
+# Transpose the canonical_functions matrix
+canonical_functions_transposed <- t(canonical_functions)
+
+# Get the coefficients for each variable in the canonical discriminant functions
+coefficients <- canonical_functions_transposed
+
+# Transpose the coefficients matrix for printing
+coefficients_transposed <- t(coefficients)
+
+# Print the ordered variables with their contributions and coefficients
+print(coefficients_transposed)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S16_variables_contributions.csv"
+
+# Save the cross table as a CSV file
+write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
+
+# Extract the coefficients for LD1 
+coeff_LD1 <- coefficients["LD1", ]
+
+# Extract the coefficients for LD2 
+coeff_LD2 <- coefficients["LD2", ]
+
+# Sort the absolute values of the coefficients in descending order
+sorted_LD1 <- sort(abs(coeff_LD1), decreasing = TRUE)
+sorted_LD2 <- sort(abs(coeff_LD2), decreasing = TRUE)
+print(sorted_LD1)
+print(sorted_LD2)
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean2$Prediction <- predict(cda_model2, newdata = selected_training_data_clean2)$class
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean2$MAT, selected_training_data_clean2$Prediction)
+
+# Compute row percentages
+row_percentages <- prop.table(cross_table, margin = 1) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+row_percentages_with_margins <- addmargins(row_percentages, margin = 1)
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, row_percentages_with_margins)
+
+# Rename the row and column names
+ rownames(cross_table_combined)[1:4] <- c("BARK", "WOOL", "LINEN", "Sum")
+ colnames(cross_table_combined)[1:3] <- c("BARK", "WOOL", "LINEN")
+ colnames(cross_table_combined)[4] <- "Sum"
+ colnames(cross_table_combined)[5:7] <- c("BARK", "WOOL", "LINEN")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:3, 1:3])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:3, 1:3])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S17_results_training_all_var.csv"
+
+# Save the cross table as a CSV file
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+#--------------------------------------------------PLOT RESULTS 
+
+# Define a palette with enough colors
+ my_palette <- c("#F11119", "#33A02C", "#FDB419")
+
+# Recode 'Class' to have meaningful category names
+ df <- df %>%
+  mutate(Class = recode(Class,
+                        "1" = "BARK",
+                        "2" = "WOOL",
+                        "3" = "LINEN"))
+
+# Create the scatter plot
+scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  # Assuming 'centroids' data exists and has LD1 and LD2 columns
+  geom_point(data = centroids, aes(x = LD1, y = LD2), 
+             size = 4, shape = 22, stroke = 0.5, color = "black", fill = my_palette) + 
+  labs(x = "LD1", y = "LD2", title = "Canonical Discriminant Classification") +
+  scale_color_manual(name = "Class", values = my_palette,
+                     labels = c("BARK", "WOOL", "LINEN")) +  
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_13_scatter_plot.jpg"
+
+# Save the scatter plot as a JPG image
+ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(scatter_plot_allvar)
+
+
+#--------------------------------------------------TEST MODEL ACCURACY
+
+# Split the dataset into training and testing sets
+set.seed(123)  # For reproducibility
+index <- createDataPartition(selected_training_data_clean2$MAT, p = 0.7, list = FALSE)
+training_data2 <- selected_training_data_clean2[index, ]
+testing_data2 <- selected_training_data_clean2[-index, ]
+
+# Train the multinomial logistic regression model
+model <- multinom(MAT ~ ., data = training_data2)
+
+# Predict on the testing set
+predictions <- predict(model, newdata = testing_data2, type = "class")
+
+# Evaluate the predictions
+confusion_matrix <- table(predictions, testing_data2$MAT)
+
+# Calculate accuracy
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+print(paste("Accuracy:", accuracy))
+
+# Calculate precision, recall, and F1 score for each class
+precision <- diag(confusion_matrix) / colSums(confusion_matrix)
+recall <- diag(confusion_matrix) / rowSums(confusion_matrix)
+f1_score <- 2 * ((precision * recall) / (precision + recall))
+
+# Calculate macro-average and micro-average of precision, recall, and F1 score
+macro_precision <- mean(precision)
+macro_recall <- mean(recall)
+macro_f1_score <- mean(f1_score)
+micro_precision <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_recall <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+micro_f1_score <- 2 * ((micro_precision * micro_recall) / (micro_precision + micro_recall))
+
+# Print evaluation metrics
+print("Evaluation Metrics:")
+print(paste("Macro Precision:", macro_precision))
+print(paste("Macro Recall:", macro_recall))
+print(paste("Macro F1 Score:", macro_f1_score))
+print(paste("Micro Precision:", micro_precision))
+print(paste("Micro Recall:", micro_recall))
+print(paste("Micro F1 Score:", micro_f1_score))
+
+# Print the confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S19_confusion_matrix.csv"
+
+# Save the predictions as a CSV file
+write.csv(confusion_matrix, file = file_path, row.names = FALSE)
+
+
+
+
+
+#--------------------------------------------------APPLY AT THE TEST_DATA
+
+# Clean rows with missing values in original data set
+print(selected_variables2)
+columns_to_keep <- c(intersect(selected_variables2, colnames(test_data2)), "NUM")
+test_data2 <- test_data2[, columns_to_keep, drop = FALSE]
+print(head(test_data2))
+
+# Create a subset of the test data with the selected variables
+selected_test_data <- test_data2[, c(selected_variables2)]
+
+# Clean rows with missing values
+selected_test_data <- selected_test_data[complete.cases(selected_test_data), ]
+
+# Generate unique names for the variables
+unique_names <- make.unique(colnames(selected_test_data))
+
+# Rename the variables in the selected test data
+colnames(selected_test_data) <- unique_names
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model2, newdata = selected_test_data)
+print(head(selected_test_data))
+
+# Extract the discriminant scores for each observation
+scores_blind <- as.data.frame(test_predictions$x)
+
+# Add the predicted class labels to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+
+# Create a data frame with scores and class labels
+df_blind <- data.frame(scores_blind, Predicted_Class = as.factor(selected_test_data$Predicted_Class))
+
+
+#---------------------------------------------------------------CALCULATE CLASSIFICATION CONFIDENCE
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model2, newdata = selected_test_data, decision.values = TRUE)
+
+# Extract the posterior probabilities for each class
+posterior_probs <- as.data.frame(test_predictions$posterior)
+
+# Calculate the confidence percentage based on the maximum posterior probability
+max_probs <- apply(posterior_probs, 1, max)
+confidence_percentages <- max_probs * 100
+
+# Add the predicted class labels and confidence percentages to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+selected_test_data$Confidence_Percentage <- confidence_percentages
+
+# Create a data frame with scores, class labels, and confidence percentages
+df_confidence <- data.frame(
+  scores_blind,
+  Predicted_Class = as.factor(selected_test_data$Predicted_Class),
+  Confidence_Percentage = selected_test_data$Confidence_Percentage
+)
+
+# Recode the Predicted_Class variable using CODE_NAME
+df_confidence <- df_confidence %>%
+  mutate(Predicted_Class = recode(Predicted_Class,
+                                  "1" = "BARK",
+                                  "2" = "WOOL",
+                                  "3" = "LINEN"))
+
+# Combine the NUM, Predicted_Class, Confidence_Percentage, LD1, and LD2 columns
+predictions <- data.frame(
+  NUM = test_data2$NUM,
+  Predicted_Class = test_predictions$class,
+  Confidence_Percentage = df_confidence$Confidence_Percentage,
+  LD1 = df_confidence$LD1,
+  LD2 = df_confidence$LD2
+)
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S20_predictions.csv"
+
+# Save the predictions as a CSV file
+write.csv(predictions, file = file_path, row.names = FALSE)
+
+
+
+#----------------------------------------------------------------------PLOT THE TEST_DATA
+
+# Define a palette with enough colors
+my_palette <- c("#F11119", "#33A02C", "#FDB419")
+
+# Recode 'Class' to have meaningful category names
+df <- df %>%
+  mutate(Class = recode(Class,
+                        "1" = "BARK",
+                        "2" = "WOOL",
+                        "3" = "LINEN"))
+
+# Plotting the known and unknown individuals together
+scatter_plot_test <- ggplot() +
+  geom_point(data = df, aes(x = LD1, y = LD2, color = Class), shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = df_blind, aes(x = LD1, y = LD2), shape = 42, size = 2, stroke = 0.2, color = "black") +
+  labs(x = "LD1", y = "LD2", title = "Blind Classification") +
+  scale_color_manual(name = "Predicted_Class", values = my_palette,
+                     labels = c("BARK", "WOOL", "LINEN")) +  
+  theme(panel.background = element_rect(fill = "#FFFFFF"),
+        panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.4),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.4)) +
+  theme_minimal()
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_14_scatter_plot.jpg"
+
+# Print and save the scatter plot as a JPG image
+print(scatter_plot_test)
+ggsave(file = file_path, plot = scatter_plot_test, width = 10, height = 6, dpi = 600)
+
+
+#-------------------------------------------------------------IDENTIFYING CLASSIFICATION AT TOOL LEVEL
+
+# Create a cross-tabulation of Predicted_Class and NUM
+cross_tab_pred <- table(predictions$Predicted_Class, predictions$NUM)
+
+# Calculate the percentage of individuals in each class for each NUM
+percentage <- prop.table(cross_tab_pred, margin = 2) * 100
+
+# Combine counts and percentages
+cross_tab_pred_combined <- cbind(cross_tab_pred, percentage)
+
+# Rename the row and column names to match the previous table
+rownames(cross_tab_pred_combined)[1:3] <- c("BARK", "WOOL", "LINEN")
+
+# Print the percentage table
+print(cross_tab_pred_combined)
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S21_test_results.csv"
+
+# Save the cross table as a CSV file
+write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
+
