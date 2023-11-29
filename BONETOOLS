@@ -11,7 +11,7 @@ library(tidyr)
 
 
 # Specify the file path
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/RAWDATA/S1a_Dataset.txt"
+file_path <- "your_folder/S1a_Dataset.txt"
 
 # Read the Excel file
 data <- read.csv(file_path, sep='\t') 
@@ -71,7 +71,7 @@ numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
 print(zero_variance_vars)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S2_zero_variances_vars.csv"
+file_path <- "your_folder/S2_zero_variances_vars.csv"
 
 # Save the cross table as a CSV file
 write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
@@ -95,7 +95,7 @@ print(head(selected_training_data_clean))
 cor_matrix <- cor(selected_training_data_clean)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S3_cor_matrix.csv"
+file_path <- "your_folder/S3_cor_matrix.csv"
 
 # Save the cross table as a CSV file
 write.csv(cor_matrix, file = file_path, row.names = TRUE)
@@ -123,7 +123,7 @@ print(p_values)
 p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
 
 # Define the file path and name for the p-values CSV file
-file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S4_p_values.csv"
+file_path_pvalues <- "your_folder/S4_p_values.csv"
 
 # Save the data frame as a CSV file
 write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
@@ -239,7 +239,7 @@ removed_predictors <- result$removed_predictors
 if (length(removed_predictors) > 0) {
   print(removed_predictors)
   # Save the removed predictors to a new CSV file
-  file_path_removed <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S5_removed_predictors.csv"
+  file_path_removed <- "your_folder/S5_removed_predictors.csv"
   write.csv(removed_predictors, file = file_path_removed, row.names = FALSE)
 } else {
   cat("No predictors were removed.\n")
@@ -250,11 +250,11 @@ selected_variables <- setdiff(colnames(selected_training_data_clean), "MAT2")
 print(selected_variables)
 
 # Save the selected predictors to a new CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S6_selected_predictors.csv"
+file_path <- "your_folder/S6_selected_predictors.csv"
 write.csv(selected_variables, file = file_path, row.names = FALSE)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S7_selected_training_data_clean.csv"
+file_path <- "your_folder/S7_selected_training_data_clean.csv"
 
 # Save the cross table as a CSV file
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
@@ -313,7 +313,7 @@ coefficients_transposed <- t(coefficients)
 print(coefficients_transposed)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S8_variables_contributions.csv"
+file_path <- "your_folder/S8_variables_contributions.csv"
 
 # Save the cross table as a CSV file
 write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
@@ -367,7 +367,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S9_results_training_all_var.csv"
+file_path <- "your_folder/S9_results_training_all_var.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
@@ -403,7 +403,7 @@ density_plot <- ggplot(df, aes(x = LD1, fill = Class)) +
                                         linewidth = 0.1))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_11_density_plot.jpg"
+file_path <- "your_folder/Figure_11_density_plot.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = density_plot, width = 10, height = 6, dpi = 600)
@@ -460,7 +460,7 @@ print("Confusion Matrix:")
 print(confusion_matrix)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S10_confusion_matrix.csv"
+file_path <- "your_folder/S10_confusion_matrix.csv"
 
 # Save the predictions as a CSV file
 write.csv(confusion_matrix, file = file_path, row.names = FALSE)
@@ -537,7 +537,7 @@ predictions <- data.frame(
   LD1 = df_confidence$LD1)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S11_predictions.csv"
+file_path <- "your_folder/S11_predictions.csv"
 
 # Save the predictions as a CSV file
 write.csv(predictions, file = file_path, row.names = FALSE)
@@ -562,7 +562,7 @@ density_plot <- ggplot() +
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", linewidth = 0.1))
 
 # Save plot.
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_12_density_plot.jpg"
+file_path <- "your_folder/Figure_12_density_plot.jpg"
 ggsave(file = file_path, plot = density_plot, width = 10, height = 6, dpi = 600)
 
 # Display plot.
@@ -574,7 +574,7 @@ print(density_plot)
 #-----------------------------------------------------EXPLORE CLASSIFICATION OF WORKED MATERIALS
 
 # Specify the file path
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/RAWDATA/S1b_Dataset.txt"
+file_path <- "your_folder/RAWDATA/S1b_Dataset.txt"
 
 # Read the Excel file
 data2 <- read.csv(file_path, sep='\t') 
@@ -584,8 +584,8 @@ training_data2 <- data2[data2$CAT == 2, ]
 test_data2 <- data2[data2$CAT == 1, ]
 
 # Specify the file paths for the training and test files
-training_file2 <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/training.xlsx"
-test_file2 <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/test.xlsx"
+training_file2 <- "your_folder/training.xlsx"
+test_file2 <- "your_folder/test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data2, file = training_file2, rownames = FALSE)
@@ -638,7 +638,7 @@ numerical_predictors <- setdiff(numerical_predictors2, zero_variance_vars)
 print(zero_variance_vars)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S12_zero_variances_vars.csv"
+file_path <- "your_folder/S12_zero_variances_vars.csv"
 
 # Save the cross table as a CSV file
 write.csv(zero_variance_vars, file = file_path, row.names = TRUE)
@@ -668,7 +668,7 @@ cor_matrix <- cor(selected_training_data_clean2[, numerical_predictors2])
 print(head(cor_matrix))
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S13_cor_matrix.csv"
+file_path <- "your_folder/S13_cor_matrix.csv"
 
 # Save the cross table as a CSV file
 write.csv(cor_matrix, file = file_path, row.names = TRUE)
@@ -695,7 +695,7 @@ print(p_values)
 p_values_df <- data.frame(Predictor = numerical_predictors2, P_Value = p_values)
 
 # Define the file path and name for the p-values CSV file
-file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S14_p_values.csv"
+file_path_pvalues <- "your_folder/S14_p_values.csv"
 
 # Save the data frame as a CSV file
 write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
@@ -815,7 +815,7 @@ print(head(selected_training_data_clean2))
 if (length(removed_predictors) > 0) {
   print(removed_predictors)
   # Save the removed predictors to a new CSV file
-  file_path_removed <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S15_removed_predictors.csv"
+  file_path_removed <- "your_folder/S15_removed_predictors.csv"
   write.csv(removed_predictors, file = file_path_removed, row.names = FALSE)
 } else {
   cat("No predictors were removed.\n")
@@ -826,7 +826,7 @@ selected_variables2 <- setdiff(colnames(selected_training_data_clean2), "MAT")
 print(selected_variables2)
 
 # Save the selected predictors to a new CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S16_selected_predictors.csv"
+file_path <- "your_folder/S16_selected_predictors.csv"
 write.csv(selected_variables2, file = file_path, row.names = FALSE)
 
 # Subset the training data with the numerical predictors
@@ -835,7 +835,7 @@ selected_training_data_clean2 <- training_data_clean2[, c("MAT", selected_variab
 print(head(selected_training_data_clean2))
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S17_selected_training_data_clean.csv"
+file_path <- "your_folder/S17_selected_training_data_clean.csv"
 
 # Save the cross table as a CSV file
 write.csv(selected_training_data_clean2, file = file_path, row.names = TRUE)
@@ -898,7 +898,7 @@ coefficients_transposed <- t(coefficients)
 print(coefficients_transposed)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S18_variables_contributions.csv"
+file_path <- "your_folder/S18_variables_contributions.csv"
 
 # Save the cross table as a CSV file
 write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
@@ -958,7 +958,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S19_results_training_all_var.csv"
+file_path <- "your_folder/S19_results_training_all_var.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
@@ -993,7 +993,7 @@ scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_13_scatter_plot.jpg"
+file_path <- "your_folder/Figure_13_scatter_plot.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
@@ -1052,7 +1052,7 @@ print("Confusion Matrix:")
 print(confusion_matrix)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S20_confusion_matrix.csv"
+file_path <- "your_folder/S20_confusion_matrix.csv"
 
 # Save the predictions as a CSV file
 write.csv(confusion_matrix, file = file_path, row.names = FALSE)
@@ -1136,7 +1136,7 @@ predictions <- data.frame(
 )
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S21_predictions.csv"
+file_path <- "your_folder/S21_predictions.csv"
 
 # Save the predictions as a CSV file
 write.csv(predictions, file = file_path, row.names = FALSE)
@@ -1176,7 +1176,7 @@ scatter_plot_test <- ggplot() +
 
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_14_scatter_plot.jpg"
+file_path <- "your_folder/Figure_14_scatter_plot.jpg"
 
 # Print and save the scatter plot as a JPG image
 print(scatter_plot_test)
@@ -1203,7 +1203,7 @@ rownames(cross_tab_pred_combined)[1:3] <- c("BARK", "WOOL", "LINEN")
 print(cross_tab_pred_combined)
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S22_test_results.csv"
+file_path <- "your_folder/S22_test_results.csv"
 
 # Save the cross table as a CSV file
 write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
@@ -1255,7 +1255,7 @@ my_plot1 <- ggplot(long_data, aes(x = as.factor(MAT2), y = value, fill = as.fact
   scale_fill_manual(values = my_palette)
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_16_boxplot1.jpg"
+file_path <- "your_folder/Figure_16_boxplot1.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = my_plot1, width = 10, height = 6, dpi = 600)
@@ -1272,7 +1272,7 @@ average_values1 <- selected_training_data_outrem %>%
 print(average_values1)
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S23_average_values1.csv"
+file_path <- "your_folder/S23_average_values1.csv"
 
 # Save the cross table as a CSV file
 write.csv(average_values1, file = file_path, row.names = TRUE)
@@ -1324,7 +1324,7 @@ my_plot2 <- ggplot(long_data, aes(x = as.factor(Predicted_Class), y = value, fil
   scale_fill_manual(values = my_palette)
 
 # Define the file path for saving the plot
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/Figure_17_boxplot2.jpg"
+file_path <- "your_folder/Figure_17_boxplot2.jpg"
 
 # Save the plot to the file
 ggsave(file_path, plot = my_plot2, width = 10, height = 8, units = "in")
@@ -1341,7 +1341,7 @@ average_values2 <- selected_test_data_outrem %>%
 print(average_values2)
 
 # Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco/R/TRAC3D/BONETOOLS/S24_average_values2.csv"
+file_path <- "your_folder/S24_average_values2.csv"
 
 # Save the cross table as a CSV file
 write.csv(average_values2, file = file_path, row.names = TRUE)
