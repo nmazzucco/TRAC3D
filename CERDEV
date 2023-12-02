@@ -5,26 +5,75 @@ library(ggplot2)
 library(dplyr)
 library(writexl)
 library(MASS)
+library(tidyr)
+library(caret)
+
+#------------------------------------------------FILE UPLOAD AND DATA CLEANING OPERATIONS
 
 # Specify the file path
-file_path <- "C:/Users/nicco/Downloads/CER_DEV2.xls"
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/RAW/CERDEVDEF.csv"
 
 # Read the Excel file
-data <- read_excel(file_path)
+data <- read.csv(file_path, sep=';') 
 
-# Specify the numerical predictors without quotes
-numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv", "Sz", "Sa", "Smr...16", "Smc", "Sxp", "Sal...19", "Str...20", "Std...21", "Vmp...22", "Vvp", "Vmp...24", "Vmc", "Vvc", "Vvv", "Spd", "Spc", "S10", "S5p", "S5v", "Sda...33", "Sha", "Sdv", "Shv", "SkF...37", "Spk...38", "Svk", "Smr...40", "Smr...41", "St", "Str...43", "Std...44", "Sal...45", "Sds", "Ssc", "Sfd", "Smr...49", "Sdc", "SkF...51", "Spk...52", "Smq", "Sbi", "Sci", "Svi", "Sme", "Sda...58", "Spa", "Alt", "Are", "Pro...62", "Pro...63", "Den", "FLTvLivellamentometododellazonaminimaFiltrodiGauss0.08mm", "FLTqLivellamentometododellazonaminimaFiltrodiGauss0.08mm", "Smean", "Spar", "SWtFiltrodiGauss0.08mm", "Stdi", "Numerodimotivi", "AltezzaMedio", "AreaMedio", "Profonditamax", "Profonditamed", "Densitamed")
+# Store the ID and FACTOR column separately
+id_factor_df <- data[c("ID", "FACTOR", "WORKING_TIME")]
+
+# Identify and remove columns with constant values
+constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE)) == 1)
+data <- data[, !constant_columns, drop = FALSE]
 
 # Split the data into training and test based on the values in column "CAT"
 training_data <- data[data$CAT == 1, ]
-test_data <- data[data$CAT == 2, ]
+training_data_MD <- data[data$CAT == 2, ]
+test_data <- data[data$CAT == 3, ]
+
+# Remove columns containing "*****" or NA values in training_data
+training_data <- training_data %>%
+  select_if(function(col) !any(col %in% c("*****", NA)))
+
+# Remove columns containing "*****" or NA values in training_data
+training_data_MD <- training_data_MD %>%
+  select_if(function(col) !any(col %in% c("*****", NA)))
+
+# Remove columns containing "*****" or NA values in test_data
+test_data <- test_data %>%
+  select_if(function(col) !any(col %in% c("*****", NA)))
+
+
+
+
+#-------------------------------------------------------------FIRST TEST ON TRAINING_DATA
+
+# Check and remove columns that contain exactly the same values
+duplicated_cols <- duplicated(apply(training_data[-1, ], 2, paste, collapse = ","))
+print(duplicated_cols)
+training_data <- training_data[, !duplicated_cols]
+
+# Extract the column names from your data frame
+column_names <- colnames(training_data)
+
+# Format the column names with double quotation marks
+formatted_column_names <- sprintf("\"%s\"", column_names)
+
+# Print the formatted column names as a list
+cat(paste(formatted_column_names, collapse = ", "))
+print(head(column_names))
+
+# Create a subset of numerical predictors
+numerical_predictors <- numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv", "Sz", "Sa", "Smr", 
+                                                  "Smc", "Sxp", "Sal", "Str", "Std", "Vm", "Vv", "Vmc",
+                                                  "Vvc", "Vvv", "Spd", "Spc", "S10", "S5p", "S5v", "Sda", 
+                                                  "Sha", "Sdv", "Shv", "Sk", "Spk", "Svk", "Smr1", "Smr2", 
+                                                  "Sdc", "Sbi", "Sci", "Svi", "Smean", "SWt", 
+                                                  "Profondmax", "Profondmed", "Densitamed")
 
 # Subset the training data with the numerical predictors
 selected_training_data <- training_data[, c("FACTOR", numerical_predictors)]
 
 # Specify the file paths for the training and test files
-training_file <- "C:\\Users\\nicco\\Downloads\\CERDDEV_training.xlsx"
-test_file <- "C:\\Users\\nicco\\Downloads\\CERDEV_test.xlsx"
+training_file <- "C:/Users/nicco/R/TRAC3D/CERDEV/RAW/CERDDEV_training.xlsx"
+test_file <- "C:/Users/nicco/R/TRAC3D/CERDEV/RAW/CERDEV_test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
@@ -33,19 +82,16 @@ write.xlsx(training_data, file = training_file, rownames = FALSE)
 write.xlsx(test_data, file = test_file, rownames = FALSE)
 
 # Subset the training data with the numerical predictors
-selected_training_data <- training_data[, c("FACTOR", numerical_predictors)]
+selected_training_data <- training_data[, c("WORKING_TIME", numerical_predictors)]
 
 # Remove rows with NULL values
 selected_training_data_clean <- selected_training_data[complete.cases(selected_training_data), ]
 
-# Remove rows with NULL values
-selected_training_data_clean <- selected_training_data[complete.cases(selected_training_data), ]
-
-# Print the numerical predictors
-print(numerical_predictors)
-
-# Subset the training data with the numerical predictors
-selected_training_data_clean<- selected_training_data_clean[, c("FACTOR", numerical_predictors)]
+# Identify and remove equal_cols
+equal_cols <- which(apply(selected_training_data_clean, 2, function(x) length(unique(x)) == 1))
+print(equal_cols)
+selected_training_data_clean <- selected_training_data_clean[, -equal_cols]
+print(head(selected_training_data_clean))
 
 # Remove rows with missing values
 selected_training_data_clean <- na.omit(selected_training_data)
@@ -57,77 +103,430 @@ variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var,
 print(variances)
 
 # Filter numerical predictors based on non-zero variance
+zero_var_predictors <- numerical_predictors[variances = 0]
+print(zero_var_predictors)
 non_zero_var_predictors <- numerical_predictors[variances > 0]
-variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var)
-zero_variance_vars <- numerical_predictors[variances == 0]
-numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
-print(zero_variance_vars)
-selected_training_data_clean <- selected_training_data_clean[, !(colnames(selected_training_data_clean) %in% zero_variance_vars)]
-numerical_predictors <- setdiff(numerical_predictors, zero_variance_vars)
-non_zero_var_predictors <- setdiff(non_zero_var_predictors, zero_variance_vars)
+print(non_zero_var_predictors)
 
 # Remove rows with missing values
 non_zero_var_predictors <- na.omit(non_zero_var_predictors)
 numerical_predictors <- na.omit(numerical_predictors)
 
-# Calculate the correlation matrix
-cor_matrix <- cor(selected_training_data_clean[, non_zero_var_predictors])
+# Remove rows with missing values from selected_training_data_clean
+selected_training_data_clean <- na.omit(selected_training_data_clean)
 
-# Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/1_cor_matrix.csv"
 
-# Save the cross table as a CSV file
-write.csv(cor_matrix, file = file_path, row.names = TRUE)
 
-# Identify highly correlated variables
-cor_threshold <- 0.8  # Adjust the threshold as needed
-highly_correlated_vars <- character(0)  # Empty vector to store the highly correlated variables
-variables_to_remove <- character(0)  # Empty vector to store the variables to remove
 
-# Iterate through the correlation matrix to find highly correlated variables
-for (i in 1:(ncol(cor_matrix) - 1)) {
-  for (j in (i + 1):ncol(cor_matrix)) {
-    if (abs(cor_matrix[i, j]) >= cor_threshold) {
-      # Store the names of highly correlated variables in the vector
-      highly_correlated_vars <- c(highly_correlated_vars, colnames(cor_matrix)[i], colnames(cor_matrix)[j])
-      variables_to_remove <- c(variables_to_remove, colnames(cor_matrix)[j])
-    }
+#------------------------------------------------ELIMINATE PREDICTORS WITH LOW P-VALUES
+
+# Remove the "WORKING_TIME" column from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "WORKING_TIME")]
+
+# Check and convert numerical predictors to numeric
+for (col in numerical_predictors) {
+  if (!is.numeric(selected_training_data_clean[[col]])) {
+    selected_training_data_clean[[col]] <- as.numeric(selected_training_data_clean[[col]])
   }
 }
 
-# Remove duplicates
-highly_correlated_vars <- unique(highly_correlated_vars)
-variables_to_remove <- unique(variables_to_remove)
+# Calculate the correlation matrix
 
-# View the highly correlated variables
-print(highly_correlated_vars)
+# Update the list of numerical predictors to exclude "WORKING_TIME"
+numerical_predictors <- numerical_predictors[numerical_predictors != "WORKING_TIME"]
 
-# Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/2_variables_to_remove.csv"
-
-# Save the cross table as a CSV file
-write.csv(variables_to_remove, file = file_path, row.names = TRUE)
-
-# List variables that have been retained based on correlation strength
-retained_variables <- setdiff(colnames(selected_training_data_clean), variables_to_remove)
-print(retained_variables)
+cor_matrix <- cor(selected_training_data_clean[, numerical_predictors])
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/3_retained_variables.csv"
+file_path <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S3_cor_matrix.csv"
 
-# Save the cross table as a CSV file
-write.csv(retained_variables, file = file_path, row.names = TRUE)
+# Save the correlation matrix as a CSV file
+write.csv(cor_matrix, file = file_path, row.names = TRUE)
 
-# Remove the highly correlated variables
-selected_training_data_clean <- selected_training_data_clean[, !colnames(selected_training_data_clean) %in% variables_to_remove]
+# Create an empty vector to store p-values
+p_values <- numeric(length(numerical_predictors))
+
+# Add the "WORKING_TIME" column back
+selected_training_data_clean$WORKING_TIME <- training_data$WORKING_TIME
+
+# Specify the outcome variable
+outcome_var <- "WORKING_TIME"
+
+# Iterate through each predictor
+for (i in 1:length(numerical_predictors)) {
+  # Perform correlation test and extract the p-value
+  x <- as.numeric(selected_training_data_clean[[numerical_predictors[i]]])
+  y <- as.numeric(selected_training_data_clean$WORKING_TIME)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Print or view the p-values
+print(p_values)
+
+# Create a logical vector to identify non-NA p-values
+non_na_p_values <- !is.na(p_values)
+
+# Subset numerical_predictors to keep only predictors with non-NA p-values
+numerical_predictors <- numerical_predictors[non_na_p_values]
+
+# Subset p_values to keep only non-NA values
+p_values <- p_values[non_na_p_values]
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
+
+# Define the file path and name for the p-values CSV file
+file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/THRESHING/PROVA/S4_p_values.csv"
+
+# Save the data frame as a CSV file
+write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
+
+# Create an empty vector to store the predictors to remove
+predictors_to_remove <- character(0)
+
+# Iterate through each predictor
+for (i in 1:length(p_values)) {
+  # Check if the p-value is greater than 0.005
+  if (p_values[i] > 0.005) {
+    # Add the predictor name to the vector of predictors to remove
+    predictors_to_remove <- c(predictors_to_remove, numerical_predictors[i])
+  }
+}
+
+# Remove the predictors with p-values greater than alpha
+print(predictors_to_remove)
+selected_training_data_clean <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% predictors_to_remove)]
+print(head(selected_training_data_clean))
+
+
+
+
+#-------------------------------------------------------ELIMINATE CORRELATED PREDICTORS
+
+# Remove the "WORKING_TIME" column from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "WORKING_TIME")]
+
+# Store the updated list of predictors from selected_training_data_clean
+updated_predictors <- colnames(selected_training_data_clean)[-1]
+
+# Check for constant variables and exclude them from the correlation calculation
+non_constant_vars <- apply(selected_training_data_clean[, updated_predictors], 2, function(x) var(x, na.rm = TRUE) > 0)
+
+# Select only non-constant variables
+selected_training_data_clean <- selected_training_data_clean[, c(updated_predictors[non_constant_vars])]
+
+# Calculate the correlation matrix
+cor_matrix_updated_predictors <- cor(selected_training_data_clean)
+
+# Identify correlations greater than 0.8
+high_correlations <- which(cor_matrix_updated_predictors > 0.8 & cor_matrix_updated_predictors < 1, arr.ind = TRUE)
+
+# Print the pairs of highly correlated predictors
+if (length(high_correlations) > 0) {
+  for (i in 1:nrow(high_correlations)) {
+    row_idx <- high_correlations[i, 1]
+    col_idx <- high_correlations[i, 2]
+    predictor1 <- rownames(cor_matrix_updated_predictors)[row_idx]
+    predictor2 <- colnames(cor_matrix_updated_predictors)[col_idx]
+    correlation <- cor_matrix_updated_predictors[row_idx, col_idx]
+    cat("Predictor", predictor1, "and", predictor2, "are highly correlated with a correlation of", correlation, "\n")
+  }
+} else {
+  cat("No predictors are highly correlated (correlation > 0.8).\n")
+}
+
+# Function to remove correlated predictors
+remove_correlated_predictors <- function(data, cor_matrix, threshold = 0.8) {
+  correlated_features <- which(cor_matrix > threshold & cor_matrix < 1, arr.ind = TRUE)
+  
+  removed_predictors <- character()
+  for (i in 1:nrow(correlated_features)) {
+    feature1 <- rownames(cor_matrix)[correlated_features[i, 1]]
+    feature2 <- colnames(cor_matrix)[correlated_features[i, 2]]
+    
+    if (!(feature1 %in% removed_predictors) && !(feature2 %in% removed_predictors) && feature1 != feature2) {
+      correlation <- cor_matrix[correlated_features[i, 1], correlated_features[i, 2]]
+      cat(sprintf("Predictor %s and %s are highly correlated with a correlation of %.7f\n", feature1, feature2, correlation))
+      
+      pvalue1 <- anova(lm(data[[feature1]] ~ data[[feature2]]))$`Pr(>F)`[1]
+      pvalue2 <- anova(lm(data[[feature2]] ~ data[[feature1]]))$`Pr(>F)`[1]
+      
+      if (pvalue1 < pvalue2) {
+        data <- data[, !colnames(data) %in% feature1]
+        removed_predictors <- c(removed_predictors, feature1)
+      } else {
+        data <- data[, !colnames(data) %in% feature2]
+        removed_predictors <- c(removed_predictors, feature2)
+      }
+    }
+  }
+  
+  return(list(data = data, removed_predictors = removed_predictors))
+}
+
+result <- remove_correlated_predictors(selected_training_data_clean, cor_matrix_updated_predictors)
+selected_training_data_clean <- result$data
+removed_predictors <- result$removed_predictors
+print(removed_predictors)
+
+# Store selected predictors
+selected_variables <- setdiff(colnames(selected_training_data_clean), "WORKING_TIME")
+print(selected_variables)
+
+# Save the selected predictors to a new CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/S4_selected_predictors.csv"
+write.csv(selected_variables, file = file_path, row.names = FALSE)
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/4_selected_training_data_clean.csv"
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/S5_selected_training_data_clean.csv"
 
 # Save the cross table as a CSV file
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+print(head(selected_training_data_clean))
 
-#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+# Add the WORKING_TIME column back to the dataset
+selected_training_data_clean$WORKING_TIME <- selected_training_data$WORKING_TIME
+
+
+
+
+
+#-------------------------------------------------CHECK DATASET INTEGRITY AFTER PROCESSING 
+
+# Add the "ID" column back to selected_training_data_clean based on row numbers
+selected_training_data_clean$ID <- training_data$ID[1:nrow(selected_training_data_clean)]
+
+# Get the unique "ID" values from selected_training_data_clean
+unique_ids <- unique(selected_training_data_clean$ID)
+
+# Initialize a vector to store the IDs with inconsistent values
+inconsistent_ids <- character(0)
+
+# Iterate through each unique ID
+for (id in unique_ids) {
+  # Subset rows with the same ID from both data frames
+  subset_selected <- selected_training_data_clean[selected_training_data_clean$ID == id, selected_variables]
+  subset_training <- training_data[training_data$ID == id, selected_variables]
+  
+  # Check if the subsets have different values
+  if (!identical(subset_selected, subset_training)) {
+    inconsistent_ids <- c(inconsistent_ids, id)
+  }
+}
+
+# Print or inspect the IDs with inconsistent values
+if (length(inconsistent_ids) > 0) {
+  cat("IDs with inconsistent values for selected_variables:", inconsistent_ids, "\n")
+} else {
+  cat("All rows with the same ID have consistent values for selected_variables.\n")
+}
+
+# Remove the "ID" column from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "ID")]
+
+
+
+
+
+#---------------------------------------------------RECURSIVE FEATURE ELIMINATION (RFE) 
+
+# Separate predictors (x) and response variable (y)
+# x <- selected_training_data_clean[, -ncol(selected_training_data_clean)]  # Exclude the last column (FACTOR)
+# y <- selected_training_data_clean$WORKING_TIME # The outcome variable
+
+# Set up the control parameters for RFECV
+# ctrl <- rfeControl(functions = rfFuncs, method = "cv", number = 10)
+
+# Perform RFECV
+# result <- rfe(x, y, sizes = c(1:length(selected_variables)), rfeControl = ctrl)
+# print(result)
+
+# Extract the top 5 variables from the original result text
+top_5_optimal_variables <- c("Profondmed", "Sku", "Sv", "Svi", "Sal")
+print(top_5_optimal_variables)
+
+# Update selected_training_data_clean with the selected variables
+selected_training_data_clean <- selected_training_data_clean[, c("WORKING_TIME", top_5_optimal_variables)]
+
+
+
+
+#-----------------------------------------------------------------K-MEANS
+
+# Load required libraries
+library(cluster)
+library(factoextra)
+
+# Create a temporary dataframe for rows with WORKING_TIME equal to 0
+temp_df <- selected_training_data_clean[selected_training_data_clean$WORKING_TIME == 0, ]
+
+# Add the new column to the temporary dataframe if it's not already present
+if (!"FACTOR" %in% colnames(temp_df)) {
+  temp_df$FACTOR <- 1  #
+}
+
+# Exclude rows with working time "0" from selected_training_data_clean
+new_training_data <- selected_training_data_clean[selected_training_data_clean$WORKING_TIME != 0, ]
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(WORKING_TIME ~ ., data = new_training_data)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Add LD1 and LD2 scores to the selected_training_data_clean dataframe
+# new_training_data$LD1 <- scores[, "LD1"]
+# new_training_data$LD2 <- scores[, "LD2"]
+
+# Create a dataframe for k-means clustering
+kmeans_data <- new_training_data
+
+# Remove the "FACTOR" column, as it won't be used in clustering
+kmeans_data <- kmeans_data[, !(names(kmeans_data) %in% "FACTOR")]
+
+# Perform k-means clustering on the selected variables with 5 clusters (you can adjust the number of clusters)
+k <- 4
+set.seed(123)  # Set a seed for reproducibility
+kmeans_result <- kmeans(kmeans_data, centers = k)
+
+# Add cluster assignments to your data
+kmeans_data$Cluster <- kmeans_result$cluster
+
+# Visualize the clusters using fviz_cluster
+# cluster_plot <- fviz_cluster(kmeans_result, geom = "point", data = kmeans_data, stand = FALSE)
+# print(cluster_plot)
+
+# Scatter plot of LD1 vs LD2 with cluster colors
+# kmeans_plot <- ggplot(kmeans_data, aes(x = LD1, y = LD2, color = as.factor(Cluster))) +
+#  geom_point() +
+#  scale_color_manual(values = c("#774EA3", "#0074E9", "#FF3900", "#F58865", "#099E76")) +
+#  labs(title = "Scatter Plot of LD1 vs LD2 with Cluster Colors") +
+#  theme_minimal()
+
+# print(kmeans_plot)
+
+# Create a cross_table
+cross_table <- table(kmeans_data$WORKING_TIME, kmeans_data$Cluster)
+
+# Print the cross-table
+print(cross_table)
+
+# Recode the "Cluster" column based on your criteria
+kmeans_data <- kmeans_data %>%
+  mutate(Cluster = case_when(
+    Cluster == 1 ~ "3",
+    Cluster == 2 ~ "5",
+    Cluster == 3 ~ "4",
+    Cluster == 4 ~ "2",
+    TRUE ~ as.character(Cluster)  # Keep other values as they are
+  ))
+
+# Create a cross_table
+cross_table <- table(kmeans_data$WORKING_TIME, kmeans_data$Cluster)
+
+# Calculate row percentages
+row_percentages <- prop.table(cross_table, margin = 1)
+
+# Add row and column margins to the table
+cross_table_with_margins <- addmargins(cross_table)
+
+# Print the cross-table with row percentages
+print(cross_table_with_margins)
+
+# Print the row percentages
+print(row_percentages)
+
+# Define a function to determine the majority class
+get_majority_class <- function(row_percentage) {
+  if (any(row_percentage > 0.5)) {
+    return(as.character(names(row_percentage[row_percentage > 0.5])))
+  } else {
+    return("Unknown")  # If no majority class with > 50%
+  }
+}
+
+# Apply the function to each row
+majority_classes <- apply(row_percentages, 1, get_majority_class)
+
+# Create a dataframe with WORKING_TIME and FACTOR
+factor_df <- data.frame(WORKING_TIME = as.numeric(rownames(row_percentages)),
+                        FACTOR = majority_classes)
+
+# Select only the columns you want to keep from kmeans_data
+selected_kmeans_data <- kmeans_data[, !(names(kmeans_data) %in% "Cluster")]
+
+# Merge factor_df with selected_kmeans_data based on WORKING_TIME
+factor_df <- merge(selected_kmeans_data, factor_df, by = "WORKING_TIME", all.x = TRUE)
+
+# Store a copy of selected_training_data_clean
+selected_training_data_clean_original <- selected_training_data_clean
+
+# Combine temp_df and factor_df
+selected_training_data_clean <- rbind(factor_df, temp_df)
+
+# Convert selected_training_data$FACTOR to numeric
+selected_training_data_clean$FACTOR <- as.numeric(selected_training_data_clean$FACTOR)
+
+
+
+
+#--------------------------------------------------EXPLORE PARAMETERS THROUGH THE FACTOR
+
+# Function to remove outliers for a given variable
+remove_outliers <- function(data, variable) {
+  Q1 <- quantile(data[[variable]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(data[[variable]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  upper_limit <- Q3 + 1.5 * IQR
+  lower_limit <- Q1 - 1.5 * IQR
+  data <- data %>%
+    filter(!!sym(variable) >= lower_limit & !!sym(variable) <= upper_limit)
+  return(data)
+}
+
+# Apply the function to each numerical predictor variable
+selected_training_data_clean <- selected_training_data_clean
+for (variable in top_5_optimal_variables) {
+  selected_training_data_clean <- remove_outliers(selected_training_data_clean, variable)
+}
+
+# Define the factor
+factor_variable <- "FACTOR"
+
+# Reshaping the data from wide to long format
+long_data <- pivot_longer(selected_training_data_clean, 
+                          cols = all_of(top_5_optimal_variables),
+                          names_to = "variable", 
+                          values_to = "value")
+
+# Define your color palette
+my_palette <- c("#F11119", "#099E76", "#FD8419", "#CC79A7", "#0074E9", "#000777")
+
+# Plotting the data
+my_plot <- ggplot(long_data, aes(x = as.factor(FACTOR), y = value, fill = as.factor(FACTOR))) +
+  geom_boxplot() +
+  facet_wrap(~variable, scales = "free") +
+  labs(title = "Boxplots of Predictors by FACTOR", x = "FACTOR", y = "Value") +
+  theme_bw() +
+  scale_fill_manual(values = my_palette)
+
+# Define the file path for saving the plot
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/RAW/Figure_1_boxplot.jpg"
+
+# Save the plot to the file
+ggsave(file_path, plot = my_plot, width = 10, height = 8, units = "in")
+
+# Print the scatter plot
+print(my_plot)
+
+
+
+
+#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS (CDA)
+
+# Check dataset structure
+print(head(selected_training_data_clean))
 
 # Perform Canonical Discriminant Analysis
 cda_model <- lda(FACTOR ~ ., data = selected_training_data_clean)
@@ -156,7 +555,7 @@ centroids <- aggregate(. ~ Class, data = df, FUN = mean)
 
 
 
-#--------------------------------------------------STRUCTURE MATRIX
+#--------------------------------------------------------------STRUCTURE MATRIX
 
 # Exclude FACTOR and Prediction variables
 variables <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% c("FACTOR", "Prediction"))]
@@ -198,32 +597,7 @@ write.csv(coefficients_transposed, file = file_path, row.names = TRUE)
 coeff_LD1 <- coefficients["LD1", ]
 coeff_LD2 <- coefficients["LD2", ]
 
-# Sort the absolute values of the coefficients in descending order
-sorted_LD1 <- sort(abs(coeff_LD1), decreasing = TRUE)
-sorted_LD2 <- sort(abs(coeff_LD2), decreasing = TRUE)
 
-# Extract the top 5 variables for LD1 and LD2
-top_variables_LD1 <- names(sorted_LD1)[1:5]
-top_variables_LD2 <- names(sorted_LD2)[1:5]
-
-# Print the top variables for LD1 and LD2
-cat("Top variables for LD1:\n")
-print(top_variables_LD1)
-cat("Top variables for LD2:\n")
-print(top_variables_LD2)
-
-# Select the unique set of variables that contribute the most to LD1 and LD2
-selected_variables <- unique(c("FACTOR", top_variables_LD1, top_variables_LD2))
-print(selected_variables)
-
-# Create a new dataset including FACTOR and the selected variables
-new_training_dataset <- selected_training_data_clean[, selected_variables]
-
-# Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/6_new_training_dataset.csv"
-
-# Save the cross table as a CSV file
-write.csv(new_training_dataset, file = file_path, row.names = TRUE)
 
 
 #--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
@@ -254,10 +628,10 @@ colnames(cross_table_combined)[7:11] <- c("NOUSE%", "LOW%", "MEDIUM%", "HIGH%", 
 print(cross_table_combined)
 
 # Get the counts of correct classifications for each class
-correct_counts <- diag(cross_table_combined[1:3, 1:3])
+correct_counts <- diag(cross_table_combined[1:5, 1:5])
 
 # Calculate the total number of observations
-total_observations <- sum(cross_table_combined[1:3, 1:3])
+total_observations <- sum(cross_table_combined[1:5, 1:5])
 
 # Calculate the global percentage of cases correctly classified
 global_percentage <- sum(correct_counts) / total_observations * 100
@@ -272,26 +646,23 @@ file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/7_results_training_all_var.csv"
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
-#--------------------------------------------------SCATTER PLOT
+
+
+#---------------------------------------------------------SCATTER PLOT ON LD1 and LD2
 
 # Define the Darjeeling palette
-darjeeling_palette <- c("#774EA3", "#0074E9", "#FF3900", "#002876", "#099E76")
-
-# Recode the Class variable using CODE_NAME
-df <- df %>%
-  mutate(Class = recode(Class,
-                        "1" = "NOUSE",
-                        "2" = "LOW",
-                        "3" = "MEDIUM",
-                        "4" = "HIGH",
-                        "5" = "VERY HIGH"))
+my_palette <- c("#F11119", "#099E76", "#FD8419", "#CC79A7", "#0074E9", "#000777")
 
 # Create the scatter plot
-scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   geom_point(shape = 21, size = 1.8, stroke = 0.5) +
   geom_point(data = centroids, aes(x = LD1, y = LD2), color = "#000000", size = 4, shape = 22, stroke = 0.5, fill = "#FFFF66") +
   labs(x = "LD1", y = "LD2", title = "All var") +
-  scale_color_manual(name = "Class", values = darjeeling_palette) +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("NOUSE", "VERY LOW", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
+  ) +
   theme(panel.background = element_rect(fill = "#FFFFFF")) +
   theme_minimal() +
   theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
@@ -301,124 +672,18 @@ scatter_plot_allvar <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
 file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/8_scatter_plot_all_var.jpg"
 
 # Save the scatter plot as a JPG image
-ggsave(file = file_path, plot = scatter_plot_allvar, width = 10, height = 6, dpi = 600)
+ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
 
 # Print the scatter plot
-print(scatter_plot_allvar)
-
-
-#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS WITH TOP VAR
-
-# Perform Canonical Discriminant Analysis
-cda_model_topvar <- lda(FACTOR ~ ., data = new_training_dataset)
-
-# Extract the discriminant scores for each observation
-scores_topvar <- predict(cda_model_topvar)$x
-
-# Create a data frame with scores and class labels
-df_topvar <- data.frame(scores_topvar, Class = as.factor(new_training_dataset$FACTOR))
-
-# Check for missing values in scores
-if (any(is.na(df_topvar$LDA1)) || any(is.na(df_topvar$LDA2))) {
-  stop("Missing values detected in LD1 or LD2.")
-}
-
-# Check factor levels
-if (!is.factor(df_topvar$Class)) {
-  stop("Class variable (FACTOR) should be a factor.")
-}
-
-# Remove missing values
-df_topvar <- na.omit(df_topvar)
-
-# Calculate centroids for each class
-centroids <- aggregate(. ~ Class, data = df_topvar, FUN = mean)
-
-
-#--------------------------------------------------SCATTER PLOT WITH TOP VAR
-
-# Define the Darjeeling palette
-darjeeling_palette <- c("#774EA3", "#0074E9", "#FF3900", "#002876", "#099E76")
-
-# Recode the Class variable using CODE_NAME
-df_topvar <- df_topvar %>%
-mutate(Class = recode(Class,
-                        "1" = "NOUSE",
-                        "2" = "LOW",
-                        "3" = "MEDIUM",
-                        "4" = "HIGH",
-                        "5" = "VERY HIGH"))
-
-# Create the scatter plot
-scatter_plot_topvar <- ggplot(df_topvar, aes(x = LD1, y = LD2, color = Class)) +
-  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
-  geom_point(data = centroids, aes(x = LD1, y = LD2), color = "#000000", size = 4, shape = 22, stroke = 0.5, fill = "#FFFF66") +
-  labs(x = "LD1", y = "LD2", title = "Top var") +
-  scale_color_manual(name = "Class", values = darjeeling_palette) +
-  theme(panel.background = element_rect(fill = "#FFFFFF")) +
-  theme_minimal() +
-  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
-        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1))
-
-
-# Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/9_scatter_plot_topvar.jpg"
-
-# Save the scatter plot as a JPG image
-ggsave(file = file_path, plot = scatter_plot_topvar, width = 10, height = 6, dpi = 600)
-print(scatter_plot_topvar)
-
-#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS WITH TOP VAR 
-
-# Perform prediction on the new_training_dataset
-new_training_dataset$Prediction <- predict(cda_model_topvar, newdata = new_training_dataset)$class
-
-# Create a cross table
-cross_table_topvar <- table(new_training_dataset$FACTOR, new_training_dataset$Prediction, dnn = c("FACTOR", "Prediction"))
-
-# Compute row percentages
-row_percentages_topvar <- prop.table(cross_table_topvar, margin = 1) * 100
-
-# Add row and column margins
-cross_table_with_margins_topvar <- addmargins(cross_table_topvar, margin = 1:2)
-row_percentages_with_margins_topvar <- addmargins(row_percentages_topvar, margin = 1)
-
-# Combine counts and percentages
-cross_table_combined_topvar <- cbind(cross_table_with_margins_topvar, row_percentages_with_margins_topvar)
-
-# Rename the row and column names
-rownames(cross_table_combined_topvar)[1:5] <- c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
-colnames(cross_table_combined_topvar)[1:5] <- c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
-colnames(cross_table_combined_topvar)[6] <- "Sum"
-colnames(cross_table_combined_topvar)[7:11] <- c("NOUSE%", "LOW%", "MEDIUM%", "HIGH%", "VERY HIGH%")
-
-# Print the modified cross table
-print(cross_table_combined_topvar)
-
-# Get the counts of correct classifications for each class
-correct_counts_topvar <- diag(cross_table_combined_topvar[1:3, 1:3])
-
-# Calculate the total number of observations
-total_observations_topvar <- sum(cross_table_combined_topvar[1:3, 1:3])
-
-# Calculate the global percentage of cases correctly classified
-global_percentage_topvar <- sum(correct_counts) / total_observations * 100
-
-# Print the global percentage
-cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
-
-# Define the file path and name for the Excel file
-file_path <- "C:/Users/nicco//R/TRAC3D/10_results_training_top_var.csv"
-
-# Save the cross table as a CSV file
-write.csv(cross_table_combined_topvar, file = file_path, row.names = TRUE)
+print(scatter_plot)
 
 
 
-#--------------------------------------------------APPLY AT THE TEST_DATA
+
+#-----------------------------------------------------------------APPLY AT THE TEST_DATA
 
 # Create a subset of the test data with the selected variables
-selected_test_data <- test_data[, c("FACTOR", "WORKING_TIME", selected_variables)]
+selected_test_data <- test_data[, c("WORKING_TIME", selected_variables)]
 
 # Generate unique names for the variables
 unique_names <- make.unique(colnames(selected_test_data))
@@ -427,7 +692,7 @@ unique_names <- make.unique(colnames(selected_test_data))
 colnames(selected_test_data) <- unique_names
 
 # Perform blind classification using the trained model
-test_predictions <- predict(cda_model_topvar, newdata = selected_test_data)
+test_predictions <- predict(cda_model, newdata = selected_test_data)
 
 # Extract the discriminant scores for each observation
 scores_blind <- as.data.frame(test_predictions$x)
@@ -436,26 +701,21 @@ scores_blind <- as.data.frame(test_predictions$x)
 selected_test_data$Predicted_Class <- test_predictions$class
 
 # Create a data frame with scores and class labels
-df_blind <- data.frame(scores_blind, Class = as.factor(selected_test_data$FACTOR))
+df_blind <- data.frame(scores_blind, Class = as.factor(selected_test_data$Predicted_Class))
 
 # Define the Darjeeling palette
-darjeeling_palette <- c("#774EA3", "#0074E9", "#FF3900", "#002876", "#099E76")
-
-# Recode the Class variable using CODE_NAME
-df <- df %>%
-  mutate(Class = recode(Class,
-                        "1" = "NOUSE",
-                        "2" = "LOW",
-                        "3" = "MEDIUM",
-                        "4" = "HIGH",
-                        "5" = "VERY HIGH"))
+darjeeling_palette <- c("#F11119", "#099E76", "#FD8419", "#CC79A7", "#0074E9")
 
 # Plotting the known and unknown individuals together
 scatter_plot_test <- ggplot() +
-  geom_point(data = df_topvar, aes(x = LD1, y = LD2, color = Class), shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = df, aes(x = LD1, y = LD2, color = Class), shape = 21, size = 1.8, stroke = 0.5) +
   geom_point(data = df_blind, aes(x = LD1, y = LD2), shape = 5, size = 0.7, stroke = 0.2, color = "black") +
   labs(x = "LD1", y = "LD2", title = "Blind Classification") +
-  scale_color_manual(name = "Class", values = darjeeling_palette) +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
+  ) +
   theme(panel.background = element_rect(fill = "#FFFFFF"),
         panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.4),
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.4)) +
@@ -468,7 +728,7 @@ file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/11_scatter_plot_test.jpg"
 print(scatter_plot_test)
 ggsave(file = file_path, plot = scatter_plot_test, width = 10, height = 6, dpi = 600)
 
-# Create a data frame with the WoRKING_TIME column and predicted class labels
+# Create a data frame with the WORKING_TIME column and predicted class labels
 predictions <- data.frame(WORKING_TIME = test_data$WORKING_TIME, Predicted_Class = test_predictions$class)
 
 # Print the predictions
@@ -518,7 +778,119 @@ percentage_very_high <- count_very_high / total_very_high * 100
 
 # Create a data frame with the percentages
 correct_class <- data.frame(Category = c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH"),
-                               Percentage = c(percentage_nouse, percentage_low, percentage_medium, percentage_high, percentage_very_high))
+                            Percentage = c(percentage_nouse, percentage_low, percentage_medium, percentage_high, percentage_very_high))
+
+# Print the cross table
+print(correct_class)
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/13_correct_classification.csv"
+
+# Save the cross table as a CSV file
+write.csv(correct_class, file = file_path, row.names = TRUE)
+
+
+
+
+#---------------------------------------------------------------APPLY AT THE TEST_DATA2
+
+# Create a subset of the test data with the selected variables
+selected_test_data <- training_data_MD[, c("WORKING_TIME", selected_variables)]
+
+# Generate unique names for the variables
+unique_names <- make.unique(colnames(selected_test_data))
+
+# Rename the variables in the selected test data
+colnames(selected_test_data) <- unique_names
+
+# Perform blind classification using the trained model
+test_predictions <- predict(cda_model, newdata = selected_test_data)
+
+# Extract the discriminant scores for each observation
+scores_blind <- as.data.frame(test_predictions$x)
+
+# Add the predicted class labels to the selected test data
+selected_test_data$Predicted_Class <- test_predictions$class
+
+# Create a data frame with scores and class labels
+df_blind <- data.frame(scores_blind, Class = as.factor(selected_test_data$Predicted_Class))
+
+# Define the Darjeeling palette
+darjeeling_palette <- c("#F11119", "#099E76", "#FD8419", "#CC79A7", "#0074E9")
+
+# Plotting the known and unknown individuals together
+scatter_plot_test <- ggplot() +
+  geom_point(data = df, aes(x = LD1, y = LD2, color = Class), shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = df_blind, aes(x = LD1, y = LD2), shape = 5, size = 0.7, stroke = 0.2, color = "black") +
+  labs(x = "LD1", y = "LD2", title = "Blind Classification") +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
+  ) +
+  theme(panel.background = element_rect(fill = "#FFFFFF"),
+        panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.4),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.4)) +
+  theme_minimal()
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/11_scatter_plot_test.jpg"
+
+# Print and save the scatter plot as a JPG image
+print(scatter_plot_test)
+ggsave(file = file_path, plot = scatter_plot_test, width = 10, height = 6, dpi = 600)
+
+# Create a data frame with the WORKING_TIME column and predicted class labels
+predictions <- data.frame(WORKING_TIME = training_data_MD$WORKING_TIME, Predicted_Class = test_predictions$class)
+
+# Print the predictions
+print(predictions)
+
+# Create a cross-tabulation of Predicted_Class and WORKING_TIME
+cross_tab_pred <- table(predictions$Predicted_Class, predictions$WORKING_TIME)
+
+# Calculate the percentage of individuals in each class for each WORKING_TIME
+percentage <- prop.table(cross_tab_pred, margin = 2) * 100
+
+# Combine counts and percentages
+cross_tab_pred_combined <- cbind(cross_tab_pred, percentage)
+
+# Rename the row and column names to match the previous table
+rownames(cross_tab_pred_combined)[1:5] <- c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH")
+
+# Print the percentage table
+print(cross_tab_pred_combined)
+
+# Define the file path and name for the Excel file
+file_path <- "C:/Users/nicco/R/TRAC3D/CERDEV/12_results.csv"
+
+# Save the cross table as a CSV file
+write.csv(cross_tab_pred_combined, file = file_path, row.names = TRUE)
+
+# Calculate the count of correctly classified individuals
+count_nouse <- cross_tab_pred_combined["NOUSE", "0"]
+count_low <- sum(cross_tab_pred_combined["LOW", c("4", "8")])
+count_medium <- sum(cross_tab_pred_combined["MEDIUM", c("14", "18")])
+count_high <- sum(cross_tab_pred_combined["HIGH", c("20", "24", "28")])
+count_very_high <- sum(cross_tab_pred_combined["VERY HIGH", c("32", "36")])
+
+# Calculate the total number of individuals for each category
+total_nouse <- sum(cross_tab_pred_combined["NOUSE", c("0", "4", "8", "14", "18", "20", "24", "28", "32", "36")])
+total_low <- sum(cross_tab_pred_combined["LOW", c("0", "4", "8", "14", "18", "20", "24", "28", "32", "36")])
+total_medium <- sum(cross_tab_pred_combined["MEDIUM", c("0", "4", "8", "14", "18", "20", "24", "28", "32", "36")])
+total_high <- sum(cross_tab_pred_combined["HIGH", c("0", "4", "8", "14", "18", "20", "24", "28", "32", "36")])
+total_very_high <- sum(cross_tab_pred_combined["VERY HIGH", c("0", "4", "8", "14", "18", "20", "24", "28", "32", "36")])
+
+# Calculate the percentage of correctly classified individuals for each category
+percentage_nouse <- count_nouse / total_nouse * 100
+percentage_low <- count_low / total_low * 100
+percentage_medium <- count_medium / total_medium * 100
+percentage_high <- count_high / total_high * 100
+percentage_very_high <- count_very_high / total_very_high * 100
+
+# Create a data frame with the percentages
+correct_class <- data.frame(Category = c("NOUSE", "LOW", "MEDIUM", "HIGH", "VERY HIGH"),
+                            Percentage = c(percentage_nouse, percentage_low, percentage_medium, percentage_high, percentage_very_high))
 
 # Print the cross table
 print(correct_class)
