@@ -1,0 +1,1044 @@
+# Load the required libraries
+library(readxl)
+library(openxlsx)
+library(ggplot2)
+library(dplyr)
+library(writexl)
+library(MASS)
+library(tidyr)
+library(caret)
+library(stats)
+
+#------------------------------------------------FILE UPLOAD AND DATA CLEANING OPERATIONS
+
+# Specify the file path
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/RAWDATA.csv"
+
+# Read the Excel file
+data <- read.csv(file_path, sep=';') 
+
+# Store the ID and FACTOR column separately
+id_factor_df <- data[c("ID", "FACTOR1")]
+
+
+
+
+#------------------------------------------------------DATA PRE-PROCESSING AND CLEANING
+
+# Identify and remove columns with constant values
+constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE)) == 1)
+data <- data[, !constant_columns, drop = FALSE]
+
+# Split the data into training and test based on the values in column "CAT"
+training_data <- data[data$CAT == 2, ]
+test_data <- data[data$CAT == 3, ]
+
+# Remove columns containing "*****" or NA values in training_data
+training_data <- training_data %>%
+  select_if(function(col) !any(col %in% c("*****", NA)))
+
+# Remove columns containing "*****" or NA values in test_data
+test_data <- test_data %>%
+  select_if(function(col) !any(col %in% c("*****", NA)))
+
+
+
+
+#-------------------------------------------------------------FIRST TEST ON TRAINING_DATA
+
+# Check and remove columns that contain exactly the same values
+duplicated_cols <- duplicated(apply(training_data[-1, ], 2, paste, collapse = ","))
+print(duplicated_cols)
+training_data <- training_data[, !duplicated_cols]
+
+# Extract the column names from your data frame
+column_names <- colnames(training_data)
+
+# Format the column names with double quotation marks
+formatted_column_names <- sprintf("\"%s\"", column_names)
+
+# Print the formatted column names as a list
+cat(paste(formatted_column_names, collapse = ", "))
+print(head(column_names))
+
+# Create a subset of numerical predictors
+numerical_predictors <- numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv", "Sz", "Sa", "Smr", "Smc", 
+                                                  "Sxp", "Sal", "Str", "Std", "Sdq", "Sdr", "Vm", "Vv", "Vmc",
+                                                  "Vvc", "Vvv", "Spd", "Spc", "S10z", "S5p", "S5v", "Sda", "Sha",
+                                                  "Sdv", "Shv", "Sk", "Spk", "Svk", "Smr1", "Smr2", 
+                                                  "Sdar", "SWt", "Stdi", "Sds", "Ssc", "Sfd", "Sdc", "Sbi",
+                                                  "Sci", "Svi", "Profundidadmax", "Profundidadmed", "Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data <- training_data[, c("FACTOR1", numerical_predictors)]
+
+# Specify the file paths for the training and test files
+training_file <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/POTTERY_training.xlsx"
+test_file <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/POTTERY_test.xlsx"
+
+# Write the training data to a new Excel file
+write.xlsx(training_data, file = training_file, rownames = FALSE)
+
+# Write the test data to a new Excel file
+write.xlsx(test_data, file = test_file, rownames = FALSE)
+
+# Remove rows with NULL values
+selected_training_data_clean <- selected_training_data[complete.cases(selected_training_data), ]
+
+# Identify and remove columns with equal values
+equal_cols <- which(sapply(selected_training_data_clean, function(x) length(unique(x, na.rm = TRUE)) == 1))
+print(equal_cols)
+
+if (length(equal_cols) > 0) {
+  selected_training_data_clean <- selected_training_data_clean[, -equal_cols]
+} else {
+  cat("No columns with equal values found. Dataset remains unchanged.\n")
+}
+
+print(head(selected_training_data_clean))
+
+# Remove rows with missing values
+selected_training_data_clean <- na.omit(selected_training_data_clean)
+str(selected_training_data_clean) 
+
+# Calculate the variances of each column
+variances <- apply(selected_training_data_clean[, numerical_predictors], 2, var, na.rm = TRUE)
+
+# Print the variances
+print(variances)
+
+# Define a threshold for considering variance as practically zero
+variance_threshold <- 1e-5  # Adjust this threshold as necessary
+
+# Filter numerical predictors based on variance being greater than the threshold
+non_zero_var_predictors <- names(variances)[variances > variance_threshold]
+print(non_zero_var_predictors)
+
+# Identifying predictors to be removed (variance <= threshold)
+zero_or_near_zero_var_predictors <- names(variances)[variances <= variance_threshold]
+print(zero_or_near_zero_var_predictors)
+
+# Remove the predictors with p-values greater than alpha
+selected_training_data_clean <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% zero_or_near_zero_var_predictors)]
+print(head(selected_training_data_clean))
+str(selected_training_data_clean) 
+
+# Update the list of numerical predictors
+numerical_predictors <- numerical_predictors[!numerical_predictors %in% zero_or_near_zero_var_predictors]
+print(numerical_predictors)
+
+# Remove rows with missing values
+non_zero_var_predictors <- na.omit(non_zero_var_predictors)
+numerical_predictors <- na.omit(numerical_predictors)
+
+# Remove rows with missing values from selected_training_data_clean
+selected_training_data_clean <- na.omit(selected_training_data_clean)
+
+
+
+
+#------------------------------------------------ELIMINATE PREDICTORS WITH LOW P-VALUES
+
+# Remove the "FACTOR1" column from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "FACTOR1")]
+
+# Check and convert numerical predictors to numeric
+for (col in numerical_predictors) {
+  if (!is.numeric(selected_training_data_clean[[col]])) {
+    selected_training_data_clean[[col]] <- as.numeric(selected_training_data_clean[[col]])
+  }
+}
+
+# Update the list of numerical predictors to exclude "FACTOR1"
+numerical_predictors <- numerical_predictors[numerical_predictors != "FACTOR1"]
+
+# Calculate the correlation matrix
+cor_matrix <- cor(selected_training_data_clean[, numerical_predictors])
+
+# Define the file path and name for the CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S1_cor_matrix.csv"
+
+# Save the correlation matrix as a CSV file
+write.csv(cor_matrix, file = file_path, row.names = TRUE)
+
+# Create an empty vector to store p-values
+p_values <- numeric(length(numerical_predictors))
+
+# Add the "FACTOR1" column back
+selected_training_data_clean$FACTOR1 <- training_data$FACTOR1
+
+# Specify the outcome variable
+outcome_var <- "FACTOR1"
+
+# Iterate through each predictor
+for (i in 1:length(numerical_predictors)) {
+  # Perform correlation test and extract the p-value
+  x <- as.numeric(selected_training_data_clean[[numerical_predictors[i]]])
+  y <- as.numeric(selected_training_data_clean$FACTOR1)
+  correlation_test <- cor.test(x, y)
+  p_values[i] <- correlation_test$p.value
+}
+
+# Print or view the p-values
+print(p_values)
+
+# Create a logical vector to identify non-NA p-values
+non_na_p_values <- !is.na(p_values)
+print(non_na_p_values)
+
+# Subset numerical_predictors to keep only predictors with non-NA p-values
+numerical_predictors <- numerical_predictors[non_na_p_values]
+
+# Subset p_values to keep only non-NA values
+p_values <- p_values[non_na_p_values]
+
+# Create a data frame with predictors and p-values
+p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
+
+# Define the file path and name for the p-values CSV file
+file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/POTTERY/S2_p_values.csv"
+write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
+
+# Create an empty vector to store the predictors to remove
+predictors_to_remove <- character(0)
+
+# Iterate through each predictor
+for (i in 1:length(p_values)) {
+  # Check if the p-value is greater than 0.005
+  if (p_values[i] > 0.005) {
+    # Add the predictor name to the vector of predictors to remove
+    predictors_to_remove <- c(predictors_to_remove, numerical_predictors[i])
+  }
+}
+
+# Remove the predictors with p-values greater than alpha
+print(predictors_to_remove)
+selected_training_data_clean <- selected_training_data_clean[, !(names(selected_training_data_clean) %in% predictors_to_remove)]
+print(head(selected_training_data_clean))
+
+
+
+
+#-------------------------------------------------------ELIMINATE CORRELATED PREDICTORS
+
+# Remove the "FACTOR1" column from selected_training_data_clean
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "FACTOR1")]
+
+# Store the updated list of predictors from selected_training_data_clean
+updated_predictors <- colnames(selected_training_data_clean)[-1]
+
+# Check for constant variables and exclude them from the correlation calculation
+non_constant_vars <- apply(selected_training_data_clean[, updated_predictors], 2, function(x) var(x, na.rm = TRUE) > 0)
+
+# Select only non-constant variables
+selected_training_data_clean <- selected_training_data_clean[, c(updated_predictors[non_constant_vars])]
+
+# Calculate the correlation matrix
+cor_matrix_updated_predictors <- cor(selected_training_data_clean)
+
+# Identify correlations greater than 0.8
+high_correlations <- which(cor_matrix_updated_predictors > 0.8 & cor_matrix_updated_predictors < 1, arr.ind = TRUE)
+
+# Print the pairs of highly correlated predictors
+if (length(high_correlations) > 0) {
+  for (i in 1:nrow(high_correlations)) {
+    row_idx <- high_correlations[i, 1]
+    col_idx <- high_correlations[i, 2]
+    predictor1 <- rownames(cor_matrix_updated_predictors)[row_idx]
+    predictor2 <- colnames(cor_matrix_updated_predictors)[col_idx]
+    correlation <- cor_matrix_updated_predictors[row_idx, col_idx]
+    cat("Predictor", predictor1, "and", predictor2, "are highly correlated with a correlation of", correlation, "\n")
+  }
+} else {
+  cat("No predictors are highly correlated (correlation > 0.8).\n")
+}
+
+# Function to remove correlated predictors
+remove_correlated_predictors <- function(data, cor_matrix, threshold = 0.8) {
+  correlated_features <- which(cor_matrix > threshold & cor_matrix < 1, arr.ind = TRUE)
+  
+  removed_predictors <- character()
+  for (i in 1:nrow(correlated_features)) {
+    feature1 <- rownames(cor_matrix)[correlated_features[i, 1]]
+    feature2 <- colnames(cor_matrix)[correlated_features[i, 2]]
+    
+    if (!(feature1 %in% removed_predictors) && !(feature2 %in% removed_predictors) && feature1 != feature2) {
+      correlation <- cor_matrix[correlated_features[i, 1], correlated_features[i, 2]]
+      cat(sprintf("Predictor %s and %s are highly correlated with a correlation of %.7f\n", feature1, feature2, correlation))
+      
+      pvalue1 <- anova(lm(data[[feature1]] ~ data[[feature2]]))$`Pr(>F)`[1]
+      pvalue2 <- anova(lm(data[[feature2]] ~ data[[feature1]]))$`Pr(>F)`[1]
+      
+      if (pvalue1 < pvalue2) {
+        data <- data[, !colnames(data) %in% feature1]
+        removed_predictors <- c(removed_predictors, feature1)
+      } else {
+        data <- data[, !colnames(data) %in% feature2]
+        removed_predictors <- c(removed_predictors, feature2)
+      }
+    }
+  }
+  
+  return(list(data = data, removed_predictors = removed_predictors))
+}
+
+result <- remove_correlated_predictors(selected_training_data_clean, cor_matrix_updated_predictors)
+selected_training_data_clean <- result$data
+removed_predictors <- result$removed_predictors
+print(removed_predictors)
+
+# Store selected predictors
+selected_variables <- setdiff(colnames(selected_training_data_clean), "FACTOR1")
+print(selected_variables)
+
+# Save the selected predictors to a new CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S3_selected_predictors.csv"
+write.csv(selected_variables, file = file_path, row.names = FALSE)
+
+# Save selected_training_data_clean as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S4_selected_training_data_clean.csv"
+write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+print(head(selected_training_data_clean))
+
+# Add the FACTOR1 column back to the dataframe
+selected_training_data_clean$FACTOR1 <- selected_training_data$FACTOR1
+print(head(selected_training_data_clean))
+str(selected_training_data_clean)
+
+
+
+
+#-----------------------------------------------------------REMOVE OUTLIERS
+
+# Convert FACTOR1 from a factor to a numeric type assuming it's meaningful to do so
+selected_training_data_clean$FACTOR1 <- as.numeric(as.character(selected_training_data_clean$FACTOR1))
+str(selected_training_data_clean)
+
+# Function to remove outliers for a given variable
+ remove_outliers <- function(selected_training_data_clean, variable) {
+  Q1 <- quantile(selected_training_data_clean[[variable]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(selected_training_data_clean[[variable]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  upper_limit <- Q3 + 4 * IQR
+  lower_limit <- Q1 - 4 * IQR
+  selected_training_data_clean <- selected_training_data_clean %>%
+    filter(!!sym(variable) >= lower_limit & !!sym(variable) <= upper_limit)
+  return(selected_training_data_clean)
+}
+
+# Apply the function to each numerical predictor variable
+selected_training_data_clean <- selected_training_data_clean
+for (variable in selected_variables) {
+  selected_training_data_clean <- remove_outliers(selected_training_data_clean, variable)
+}
+
+str(selected_training_data_clean)
+
+# Save selected_training_data_no_outliers as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S5_selected_training_data_no_outliers.csv"
+write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+print(head(selected_training_data_clean))
+
+
+
+
+#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+# Check dataset structure
+print(head(selected_training_data_clean))
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(FACTOR1 ~ ., data = selected_training_data_clean)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (FACTOR) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+
+
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+
+# Specify the file path and write the file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S6_selected_training_data_clean_with_predictions.xlsx"
+write.xlsx(selected_training_data_clean, file = file_path, rowNames = FALSE)
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean$FACTOR, selected_training_data_clean$Prediction)
+
+# Compute columns percentages
+column_percentages <- prop.table(cross_table, margin = 2) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+column_percentages_with_margins <- addmargins(column_percentages, margin = 1)
+
+# Define the desired row and column names
+desired_row_names <- c("1-NEG", "2-PEBBLE", "3-FLINT", "4-BONE", "5-GRASS", "6-ANTLER", "7-POTTERY SPATULA",
+                       "8-WOOD", "9-SHELL", "10-LINEN RAG", "11-LEATHER", "12-WOOL")
+
+desired_column_names <- c("1-NEG", "2-PEBBLE", "3-FLINT", "4-BONE", "5-GRASS", "6-ANTLER", "7-POTTERY SPATULA",
+                          "8-WOOD", "9-SHELL", "10-LINEN RAG", "11-LEATHER", "12-WOOL")
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, column_percentages_with_margins)
+
+# Rename the row and column names
+rownames(cross_table_combined)[1:12] <- desired_row_names
+colnames(cross_table_combined)[1:12] <- desired_column_names
+colnames(cross_table_combined)[13] <- "Sum"
+colnames(cross_table_combined)[14:25] <- paste0(desired_column_names, "%")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:12, 1:12])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:12, 1:12])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and save the cross table as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S7_results_12_groups.csv"
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+
+
+#-----------------------------------------------------SCATTER PLOT
+# Recode the Class variable using FACTOR1
+selected_training_data_clean <- selected_training_data_clean %>%
+  mutate(Class = recode(FACTOR1,
+                        "1" = "NEG",
+                        "2" = "PEBBLE",
+                        "3" = "FLINT",
+                        "4" = "BONE",
+                        "5" = "GRASS",
+                        "6" = "ANTLER",
+                        "7" = "POTTERY SPATULA",
+                        "8" = "WOOD",
+                        "9" = "SHELL",
+                        "10" = "LINEN RAG",
+                        "11" = "LEATHER",
+                        "12" = "WOOL"))
+
+# Define the Darjeeling palette
+my_palette <- c("#F11111", "#099E76", "#FD8419", "#A999A7", "#0074E9", "#000777",
+                "#F12799", "#FFBD39", "#FFA07A", "#D33111", "#A3D6D5", "#C2D8A6")
+
+# Create the scatter plot with square-shaped centroids and custom legend labels
+scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
+  labs(x = "LD1", y = "LD2") +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-PEBBLE", "3-FLINT", "4-BONE", "5-GRASS", "6-ANTLER", "7-POTTERY SPATULA",
+               "8-WOOD", "9-SHELL", "10-LINEN RAG", "11-LEATHER", "12-WOOL")
+  ) +
+  scale_fill_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-PEBBLE", "3-FLINT", "4-BONE", "5-GRASS", "6-ANTLER", "7-POTTERY SPATULA",
+               "8-WOOD", "9-SHELL", "10-LINEN RAG", "11-LEATHER", "12-WOOL")
+  ) +
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1)) +
+  guides(color = guide_legend(override.aes = list(shape = 21)))
+
+# Define the file path and save the scatter plot as a JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_2.jpg"
+ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(scatter_plot)
+
+# Get variable importance scores
+variable_importance <- cda_model$scaling
+print(variable_importance)
+
+# Define the file path and save the dataframe as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S8_variable_importance.csv"
+write.csv(variable_importance, file = file_path, row.names = TRUE)
+
+# Number of predictors
+n_predictors <- nrow(variable_importance)
+
+# Initialize vectors to store p-values for each predictor in LD1 and LD2
+p_values_LD1 <- numeric(n_predictors)
+p_values_LD2 <- numeric(n_predictors)
+
+# Loop through each predictor
+for (i in 1:n_predictors) {
+  # Extract importance scores for the predictor
+  importance_scores_LD1 <- variable_importance[, "LD1"]
+  importance_scores_LD2 <- variable_importance[, "LD2"]
+  
+  # Perform t-test for LD1
+  t_test_LD1 <- t.test(importance_scores_LD1, mu = 0)
+  p_values_LD1[i] <- t_test_LD1$p.value
+  
+  # Perform t-test for LD2
+  t_test_LD2 <- t.test(importance_scores_LD2, mu = 0)
+  p_values_LD2[i] <- t_test_LD2$p.value
+}
+
+# Extract variable names
+variable_names <- rownames(variable_importance)
+
+# Get the top three predictors for LD1 and LD2
+top_predictors_LD1 <- order(abs(variable_importance[, "LD1"]), decreasing = TRUE)[1:4]
+top_predictors_LD2 <- order(abs(variable_importance[, "LD2"]), decreasing = TRUE)[1:4]
+
+# Display the names of the top predictors
+print("Top Predictors for LD1:")
+print(variable_names[top_predictors_LD1])
+
+print("Top Predictors for LD2:")
+print(variable_names[top_predictors_LD2])
+
+
+
+
+#-----------------------------------------------------------GROUP CATEGORIES
+# Load required library
+library(stats)
+
+# Subset the training data with the numerical predictors
+selected_training_data_clean <- selected_training_data_clean[, c("FACTOR1", selected_variables)]
+
+# Frequencies for the original FACTOR2 categories
+factor1_frequencies <- table(selected_training_data_clean$FACTOR1)
+class_frequencies <- table(selected_training_data_clean$Class)
+print(factor1_frequencies)
+
+# Define the mapping function
+map_factor1_to_factor2 <- function(factor1_category) {
+  if (factor1_category == 1) {
+    return("NEG")
+  } else if (factor1_category %in% c(2, 4, 6, 8, 9)) {
+    return("HARD_SMOOTH_TOOL")
+  } else if (factor1_category == 3) {
+    return("HARD_ROUGH_TOOL")  
+  } else if (factor1_category == 7) {
+    return("POTTERY_SPATULA")
+  } else if (factor1_category %in% c(5, 10)) {
+    return("SOFT_VEGETAL")
+  } else if (factor1_category %in% c(11, 12)) {
+    return("SOFT_ANIMAL")
+  } else {
+    return("UNKNOWN")
+  }
+}
+
+# Apply the mapping function to create FACTOR2
+selected_training_data_clean$FACTOR2 <- sapply(selected_training_data_clean$FACTOR1, map_factor1_to_factor2)
+
+# Convert FACTOR1 and FACTOR2 to factors
+selected_training_data_clean$FACTOR2 <- as.factor(selected_training_data_clean$FACTOR2)
+
+# Define the file path and save the dataframe as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S9_selected_training_data_clean_6_groups.csv"
+write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
+
+# Removing FACTOR1 
+selected_training_data_clean <- selected_training_data_clean[, -which(names(selected_training_data_clean) == "FACTOR1")]
+
+# Verify the structure of the dataframe after removal
+str(selected_training_data_clean)
+factor2_frequencies <- table(selected_training_data_clean$FACTOR2)
+print(factor2_frequencies)
+
+
+
+
+#--------------------------------------------------EXPLORE PARAMETERS THROUGH THE FACTOR
+
+
+# Exclude FACTOR2 column and standardize the remaining numerical predictors
+data_for_standardization <- selected_training_data_clean[, !names(selected_training_data_clean) %in% "FACTOR2"]
+data_for_standardization <- scale(data_for_standardization)
+
+# Combine the FACTOR2 column back with the standardized data
+data_for_plotting <- cbind(FACTOR2 = selected_training_data_clean$FACTOR2, data_for_standardization)
+
+# Reshape the data for plotting
+long_data <- pivot_longer(as.data.frame(data_for_plotting), 
+                          cols = -FACTOR2, names_to = "variable", values_to = "value")
+
+# Recode FACTOR2 with descriptive labels
+long_data$FACTOR2 <- factor(long_data$FACTOR2,
+                            labels = c("1-NEG", "2-HARD_ROUND", "3-HARD-ROUGH", 
+                                       "4-POTTERY_SPATULA", "5-SOFT_ANIMAL", "6-SOFT_VEGETAL"))
+
+# Generate the boxplot
+boxplot <- ggplot(long_data, aes(y = value, fill = variable, color = variable)) +
+  geom_boxplot() +
+  facet_wrap(~ FACTOR2, scales = "free_x") +
+  theme_minimal() +
+  labs(y = "Standardized Value") +
+  scale_fill_brewer(palette = "Paired") +  
+  scale_color_brewer(palette = "Paired")  
+
+print(boxplot)
+
+# Define the file path and save the scatter plot as a JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_4.jpg"
+ggsave(file = file_path, plot = boxplot, width = 10, height = 6, dpi = 600)
+
+# Calculate average, minimum, maximum, and standard deviation values by FACTOR2
+summary_stats <- long_data %>%
+  group_by(FACTOR2, variable) %>%
+  summarise(
+    Mean = mean(value, na.rm = TRUE), 
+    SD = sd(value, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# View summary statistics
+print(summary_stats)
+
+# Define the file path and save the dataframe as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S9_summary_stats.csv"
+write.csv(summary_stats, file = file_path, row.names = TRUE)
+
+
+
+#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+# Check dataset structure
+print(head(selected_training_data_clean))
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (FACTOR) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+# Get variable importance scores
+variable_importance <- cda_model$scaling
+print(variable_importance)
+str(variable_importance)
+
+# Define the file path and save the dataframe as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S10_variable_importance_6_groups.csv"
+write.csv(variable_importance, file = file_path, row.names = TRUE)
+
+# Number of predictors
+n_predictors <- nrow(variable_importance)
+
+# Initialize vectors to store p-values for each predictor in LD1 and LD2
+p_values_LD1 <- numeric(n_predictors)
+p_values_LD2 <- numeric(n_predictors)
+
+# Loop through each predictor
+for (i in 1:n_predictors) {
+  # Extract importance scores for the predictor
+  importance_scores_LD1 <- variable_importance[, "LD1"]
+  importance_scores_LD2 <- variable_importance[, "LD2"]
+  
+  # Perform t-test for LD1
+  t_test_LD1 <- t.test(importance_scores_LD1, mu = 0)
+  p_values_LD1[i] <- t_test_LD1$p.value
+  
+  # Perform t-test for LD2
+  t_test_LD2 <- t.test(importance_scores_LD2, mu = 0)
+  p_values_LD2[i] <- t_test_LD2$p.value
+}
+
+# Extract variable names
+variable_names <- rownames(variable_importance)
+
+# Get the top three predictors for LD1 and LD2
+top_predictors_LD1 <- order(abs(variable_importance[, "LD1"]), decreasing = TRUE)[1:4]
+top_predictors_LD2 <- order(abs(variable_importance[, "LD2"]), decreasing = TRUE)[1:4]
+
+# Display the names of the top predictors
+print("Top Predictors for LD1:")
+print(variable_names[top_predictors_LD1])
+
+print("Top Predictors for LD2:")
+print(variable_names[top_predictors_LD2])
+
+
+
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean$FACTOR, selected_training_data_clean$Prediction)
+
+# Compute column percentages
+column_percentages <- prop.table(cross_table, margin = 2) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+column_percentages_with_margins <- addmargins(column_percentages, margin = 1)
+
+# Define the desired row and column names
+desired_row_names <- c("NEG", "HARD_ROUND", "HARD_ROUGH", "POTTERY_SPATULA", 
+                       "SOFT_ANIMAL", "SOFT_VEGETAL")
+
+desired_column_names <- c("NEG", "HARD_ROUND", "HARD_ROUGH", "POTTERY_SPATULA", 
+                          "SOFT_ANIMAL", "SOFT_VEGETAL")
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, column_percentages_with_margins)
+
+# Rename the row and column names
+rownames(cross_table_combined)[1:6] <- desired_row_names
+colnames(cross_table_combined)[1:6] <- desired_column_names
+colnames(cross_table_combined)[7] <- "Sum"
+colnames(cross_table_combined)[8:13] <- paste0(desired_column_names, "%")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:6, 1:6])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:6, 1:6])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and save the cross table as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S11_results_6_groups.csv"
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+
+
+#-----------------------------------------------------SCATTER PLOT
+# Recode the Class variable using FACTOR1
+selected_training_data_clean <- selected_training_data_clean %>%
+  mutate(Class = recode(FACTOR2,
+                        "1" = "1-NEG",
+                        "2" = "2-HARD_ROUND",
+                        "3" = "3-HARD-ROUGH",
+                        "4" = "4-POTTERY_SPATULA",
+                        "5" = "5-SOFT_ANIMAL",
+                        "6" = "6-SOFT_VEGETAL"))
+
+# Define the Darjeeling palette
+my_palette <- c("#F11119", "#099E76", "#FD8419", "#FFBD39", "#0074E9", "#EEEE99")
+
+# Create the scatter plot with square-shaped centroids and custom legend labels
+scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
+  labs(x = "LD1", y = "LD2") +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-HARD_ROUND", "3-HARD-ROUGH", "4-POTTERY_SPATULA", "5-SOFT_ANIMAL", "6-SOFT_VEGETAL")
+  ) +
+  scale_fill_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-HARD_ROUND", "3-HARD-ROUGH", "4-POTTERY_SPATULA", "5-SOFT_ANIMAL", "6-SOFT_VEGETAL")
+  ) +
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1)) +
+  guides(color = guide_legend(override.aes = list(shape = 21)))
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_3.jpg"
+ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(scatter_plot)
+
+
+
+
+#------------------------------------------------------CLASSIFICATION USING INDUSTRIAL EARTH
+
+# Specify the file path
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/RAWDATA.csv"
+
+# Read the Excel file
+data <- read.csv(file_path, sep=';') 
+
+# Identify and remove columns with constant values
+constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE)) == 1)
+data <- data[, !constant_columns, drop = FALSE]
+
+# Split the data into training and test based on the values in column "CAT"
+training_data <- data[data$CAT == 1, ]
+
+# Create a subset of numerical predictors
+numerical_predictors <- numerical_predictors <- c("Sku", "Sal", "Sda", "Sha", "Smr2", "Sfd", "Sbi",
+                                                  "Sci", "Svi", "Profundidadmax", "Profundidadmed", "Densidadmed")
+
+# Subset the training data with the numerical predictors
+selected_training_data <- training_data[, c("FACTOR2", numerical_predictors)]
+str(selected_training_data)
+
+
+
+
+#-----------------------------------------------------------REMOVE OUTLIERS
+
+# Function to remove outliers for a given variable
+remove_outliers <- function(selected_training_data, variable) {
+  Q1 <- quantile(selected_training_data[[variable]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(selected_training_data[[variable]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  upper_limit <- Q3 + 4 * IQR
+  lower_limit <- Q1 - 4 * IQR
+  selected_training_data <- selected_training_data %>%
+    filter(!!sym(variable) >= lower_limit & !!sym(variable) <= upper_limit)
+  return(selected_training_data)
+}
+
+# Apply the function to each numerical predictor variable
+selected_training_data <- selected_training_data
+for (variable in selected_variables) {
+  selected_training_data <- remove_outliers(selected_training_data, variable)
+}
+
+str(selected_training_data)
+selected_training_data_clean <- selected_training_data
+
+
+
+
+#--------------------------------------------------CANONICAL DISCRIMINANT ANALYSIS
+
+# Check dataset structure
+print(head(selected_training_data_clean))
+
+# Perform Canonical Discriminant Analysis
+cda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
+
+# Extract the discriminant scores for each observation
+scores <- predict(cda_model)$x
+
+# Create a data frame with scores and class labels
+df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
+
+# Check for missing values in scores
+if (any(is.na(df$LDA1)) || any(is.na(df$LDA2))) {
+  stop("Missing values detected in LD1 or LD2.")
+}
+
+# Check factor levels
+if (!is.factor(df$Class)) {
+  stop("Class variable (FACTOR) should be a factor.")
+}
+
+# Remove missing values
+df <- na.omit(df)
+
+# Calculate centroids for each class
+centroids <- aggregate(. ~ Class, data = df, FUN = mean)
+
+# Get variable importance scores
+variable_importance <- cda_model$scaling
+print(variable_importance)
+
+# Define the file path and save the dataframe as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S13_variable_importance_industrial.csv"
+write.csv(variable_importance, file = file_path, row.names = TRUE)
+
+# Number of predictors
+n_predictors <- nrow(variable_importance)
+
+# Initialize vectors to store p-values for each predictor in LD1 and LD2
+p_values_LD1 <- numeric(n_predictors)
+p_values_LD2 <- numeric(n_predictors)
+
+# Loop through each predictor
+for (i in 1:n_predictors) {
+  # Extract importance scores for the predictor
+  importance_scores_LD1 <- variable_importance[, "LD1"]
+  importance_scores_LD2 <- variable_importance[, "LD2"]
+  
+  # Perform t-test for LD1
+  t_test_LD1 <- t.test(importance_scores_LD1, mu = 0)
+  p_values_LD1[i] <- t_test_LD1$p.value
+  
+  # Perform t-test for LD2
+  t_test_LD2 <- t.test(importance_scores_LD2, mu = 0)
+  p_values_LD2[i] <- t_test_LD2$p.value
+}
+
+# Extract variable names
+variable_names <- rownames(variable_importance)
+
+# Get the top three predictors for LD1 and LD2
+top_predictors_LD1 <- order(abs(variable_importance[, "LD1"]), decreasing = TRUE)[1:4]
+top_predictors_LD2 <- order(abs(variable_importance[, "LD2"]), decreasing = TRUE)[1:4]
+
+# Display the names of the top predictors
+print("Top Predictors for LD1:")
+print(variable_names[top_predictors_LD1])
+
+print("Top Predictors for LD2:")
+print(variable_names[top_predictors_LD2])
+
+# Filter the dataframe by FACTOR2 groups
+group_scores <- lapply(levels(df$Class), function(level) {
+  subset_df <- df[df$Class == level, ]
+  return(subset_df)
+})
+
+
+
+#--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
+
+# Perform prediction on the selected_training_data_clean
+selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+
+# Create a cross table
+cross_table <- table(selected_training_data_clean$FACTOR, selected_training_data_clean$Prediction)
+
+# Compute row percentages
+column_percentages <- prop.table(cross_table, margin = 2) * 100
+
+# Add row and column margins
+cross_table_with_margins <- addmargins(cross_table, margin = 1:2)
+column_percentages_with_margins <- addmargins(column_percentages, margin = 1)
+
+# Define the desired row and column names
+desired_row_names <- c("NEG", "HARD_ROUND", "HARD_ROUGH", "POTTERY_SPATULA", 
+                       "SOFT_ANIMAL", "SOFT_VEGETAL")
+
+desired_column_names <- c("NEG", "HARD_ROUND", "HARD_ROUGH", "POTTERY_SPATULA", 
+                          "SOFT_ANIMAL", "SOFT_VEGETAL")
+
+# Combine counts and percentages
+cross_table_combined <- cbind(cross_table_with_margins, column_percentages_with_margins)
+
+# Rename the row and column names
+rownames(cross_table_combined)[1:6] <- desired_row_names
+colnames(cross_table_combined)[1:6] <- desired_column_names
+colnames(cross_table_combined)[7] <- "Sum"
+colnames(cross_table_combined)[8:13] <- paste0(desired_column_names, "%")
+
+# Print the modified cross table
+print(cross_table_combined)
+
+# Get the counts of correct classifications for each class
+correct_counts <- diag(cross_table_combined[1:6, 1:6])
+
+# Calculate the total number of observations
+total_observations <- sum(cross_table_combined[1:6, 1:6])
+
+# Calculate the global percentage of cases correctly classified
+global_percentage <- sum(correct_counts) / total_observations * 100
+
+# Print the global percentage
+cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
+
+# Define the file path and save the cross table as a CSV file
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S12_results_industrial_earth.csv"
+write.csv(cross_table_combined, file = file_path, row.names = TRUE)
+
+
+
+
+#-----------------------------------------------------SCATTER PLOT
+# Recode the Class variable using FACTOR1
+selected_training_data_clean <- selected_training_data_clean %>%
+  mutate(Class = recode(FACTOR2,
+                        "1" = "1-NEG",
+                        "2" = "2-HARD_ROUND",
+                        "3" = "3-HARD-ROUGH",
+                        "4" = "4-POTTERY_SPATULA",
+                        "5" = "5-SOFT_ANIMAL",
+                        "6" = "6-SOFT_VEGETAL"))
+
+# Define the Darjeeling palette
+my_palette <- c("#F11119", "#099E76", "#FD8419", "#FFBD39", "#0074E9", "#EEEE99")
+
+# Create the scatter plot with square-shaped centroids and custom legend labels
+scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
+  geom_point(shape = 21, size = 1.8, stroke = 0.5) +
+  geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
+  labs(x = "LD1", y = "LD2") +
+  scale_color_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-HARD_ROUND", "3-HARD-ROUGH", "4-POTTERY_SPATULA", "5-SOFT_ANIMAL", "6-SOFT_VEGETAL")
+  ) +
+  scale_fill_manual(
+    name = "Class",
+    values = my_palette,
+    labels = c("1-NEG", "2-HARD_ROUND", "3-HARD-ROUGH", "4-POTTERY_SPATULA", "5-SOFT_ANIMAL", "6-SOFT_VEGETAL")
+  ) +
+  theme(panel.background = element_rect(fill = "#FFFFFF")) +
+  theme_minimal() +
+  theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
+        panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1)) +
+  guides(color = guide_legend(override.aes = list(shape = 21)))
+
+# Define the file path and name for the JPG image
+file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_5.jpg"
+
+# Save the scatter plot as a JPG image
+ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
+
+# Print the scatter plot
+print(scatter_plot)
+
+
+
