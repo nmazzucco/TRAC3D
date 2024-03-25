@@ -29,16 +29,11 @@ id_factor_df <- data[c("ID", "FACTOR1")]
 constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE)) == 1)
 data <- data[, !constant_columns, drop = FALSE]
 
-# Split the data into training and test based on the values in column "CAT"
+# Subset the data based on the values in column "CAT"
 training_data <- data[data$CAT == 2, ]
-test_data <- data[data$CAT == 3, ]
 
 # Remove columns containing "*****" or NA values in training_data
 training_data <- training_data %>%
-  select_if(function(col) !any(col %in% c("*****", NA)))
-
-# Remove columns containing "*****" or NA values in test_data
-test_data <- test_data %>%
   select_if(function(col) !any(col %in% c("*****", NA)))
 
 
