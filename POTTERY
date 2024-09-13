@@ -25,10 +25,6 @@ id_factor_df <- data[c("ID", "FACTOR1")]
 
 #------------------------------------------------------DATA PRE-PROCESSING AND CLEANING
 
-# Identify and remove columns with constant values
-constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE)) == 1)
-data <- data[, !constant_columns, drop = FALSE]
-
 # Subset the data based on the values in column "CAT"
 training_data <- data[data$CAT == 2, ]
 
