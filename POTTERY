@@ -65,13 +65,9 @@ selected_training_data <- training_data[, c("FACTOR1", numerical_predictors)]
 
 # Specify the file paths for the training and test files
 training_file <- "yourfolder/POTTERY_training.xlsx"
-test_file <- "yourfolder/POTTERY_test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
-
-# Write the test data to a new Excel file
-write.xlsx(test_data, file = test_file, rownames = FALSE)
 
 # Remove rows with NULL values
 selected_training_data_clean <- selected_training_data[complete.cases(selected_training_data), ]
