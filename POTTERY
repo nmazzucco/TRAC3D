@@ -25,8 +25,8 @@ id_factor_df <- data[c("ID", "FACTOR1")]
 
 #------------------------------------------------------DATA PRE-PROCESSING AND CLEANING
 
-# Subset the data based on the values in column "CAT"
-training_data <- data[data$CAT == 2, ]
+# Split the data into training and test based on the values in column "CAT"
+training_data <- data[data$CAT == 1,]
 
 # Remove columns containing "*****" or NA values in training_data
 training_data <- training_data %>%
@@ -64,7 +64,7 @@ numerical_predictors <- numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv"
 selected_training_data <- training_data[, c("FACTOR1", numerical_predictors)]
 
 # Specify the file paths for the training and test files
-training_file <- "yourfolder/POTTERY_training.xlsx"
+training_file <- "yourfolder/POTTERY_natural_earth.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
@@ -439,11 +439,21 @@ selected_training_data_clean <- selected_training_data_clean %>%
 my_palette <- c("#F11111", "#099E76", "#FD8419", "#A999A7", "#0074E9", "#000777",
                 "#F12799", "#FFBD39", "#FFA07A", "#D33111", "#A3D6D5", "#C2D8A6")
 
+# Calculate the percentage of variance explained by each LD
+percent_variance_explained <- lda_model$svd^2 / sum(lda_model$svd^2) * 100
+
+# Extract the percentage for LD1 and LD2
+ld1_var_explained <- round(percent_variance_explained[1], 1)  # Round to 1 decimal place
+ld2_var_explained <- round(percent_variance_explained[2], 1)
+
 # Create the scatter plot with square-shaped centroids and custom legend labels
 scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   geom_point(shape = 21, size = 1.8, stroke = 0.5) +
   geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
-  labs(x = "LD1", y = "LD2") +
+  labs(
+    x = paste0("LD1 (", ld1_var_explained, "% variance explained)"),
+    y = paste0("LD2 (", ld2_var_explained, "% variance explained)")
+  ) +
   scale_color_manual(
     name = "Class",
     values = my_palette,
@@ -461,6 +471,7 @@ scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   theme(panel.grid.major = element_line(color = "#999999", linetype = "dotted", size = 0.1),
         panel.grid.minor = element_line(color = "#999999", linetype = "dotted", size = 0.1)) +
   guides(color = guide_legend(override.aes = list(shape = 21)))
+
 
 # Define the file path and save the scatter plot as a JPG image
 file_path <- "yourfolder/Figure_2.jpg"
@@ -752,6 +763,15 @@ write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
 #-----------------------------------------------------SCATTER PLOT
+
+# Retrieve the explained variance for LD1 and LD2
+explained_variance <- lda_model$svd^2 / sum(lda_model$svd^2)
+explained_variance_percent <- round(explained_variance * 100, 2)
+
+# Display the explained variance for LD1 and LD2
+cat("Percentage of Explained Variance for LD1:", explained_variance_percent[1], "%\n")
+cat("Percentage of Explained Variance for LD2:", explained_variance_percent[2], "%\n")
+
 # Recode the Class variable using FACTOR1
 selected_training_data_clean <- selected_training_data_clean %>%
   mutate(Class = recode(FACTOR2,
@@ -769,7 +789,10 @@ my_palette <- c("#F11119", "#099E76", "#FD8419", "#FFBD39", "#0074E9", "#EEEE99"
 scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   geom_point(shape = 21, size = 1.8, stroke = 0.5) +
   geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
-  labs(x = "LD1", y = "LD2") +
+  labs(
+    x = paste0("LD1 (", explained_variance_percent[1], "%)"),
+    y = paste0("LD2 (", explained_variance_percent[2], "%)")
+  ) +
   scale_color_manual(
     name = "Class",
     values = my_palette,
@@ -809,15 +832,24 @@ constant_columns <- sapply(data, function(col) length(unique(col, na.rm = TRUE))
 data <- data[, !constant_columns, drop = FALSE]
 
 # Split the data into training and test based on the values in column "CAT"
-training_data <- data[data$CAT == 1, ]
+training_data <- data[data$CAT == 2, ]
+
+# Specify the file paths for the training and test files
+training_file <- "yourfolder/POTTERY_industrial_earth.xlsx"
+
+# Write the training data to a new Excel file
+write.xlsx(training_data, file = training_file, rownames = FALSE)
 
 # Create a subset of numerical predictors
 numerical_predictors <- numerical_predictors <- c("Sku", "Sal", "Sda", "Sha", "Smr2", "Sfd", "Sbi",
                                                   "Sci", "Svi", "Profundidadmax", "Profundidadmed", "Densidadmed")
 
+selected_variables <- numerical_predictors 
+
 # Subset the training data with the numerical predictors
 selected_training_data <- training_data[, c("FACTOR2", numerical_predictors)]
 str(selected_training_data)
+
 
 
 
@@ -883,7 +915,7 @@ variable_importance <- lda_model$scaling
 print(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "yourfolder/S13_variable_importance_industrial.csv"
+file_path <- "yourfolder/S12_variable_importance_industrial.csv"
 write.csv(variable_importance, file = file_path, row.names = TRUE)
 
 # Number of predictors
@@ -977,7 +1009,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and save the cross table as a CSV file
-file_path <- "yourfolder/S12_results_industrial_earth.csv"
+file_path <- "yourfolder/S13_results_industrial_earth.csv"
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
@@ -987,21 +1019,32 @@ write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 # Recode the Class variable using FACTOR1
 selected_training_data_clean <- selected_training_data_clean %>%
   mutate(Class = recode(FACTOR2,
-                        "1" = "1-NEG",
-                        "2" = "2-HARD_ROUND",
-                        "3" = "3-HARD-ROUGH",
-                        "4" = "4-POTTERY_SPATULA",
-                        "5" = "5-SOFT_ANIMAL",
-                        "6" = "6-SOFT_VEGETAL"))
+                        "0" = "1-NEG",
+                        "1" = "2-HARD_ROUND",
+                        "2" = "3-HARD-ROUGH",
+                        "3" = "4-POTTERY_SPATULA",
+                        "4" = "5-SOFT_ANIMAL",
+                        "5" = "6-SOFT_VEGETAL"))
 
 # Define the Darjeeling palette
 my_palette <- c("#F11119", "#099E76", "#FD8419", "#FFBD39", "#0074E9", "#EEEE99")
+
+# Calculate the percentage of explained variance
+explained_variance <- lda_model$svd^2 / sum(lda_model$svd^2) * 100  # Convert to percentage
+explained_variance_percent <- round(explained_variance, 2)  # Round to two decimal places
+
+# Display the explained variance for LD1 and LD2
+cat("Percentage of Explained Variance for LD1:", explained_variance_percent[1], "%\n")
+cat("Percentage of Explained Variance for LD2:", explained_variance_percent[2], "%\n")
 
 # Create the scatter plot with square-shaped centroids and custom legend labels
 scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   geom_point(shape = 21, size = 1.8, stroke = 0.5) +
   geom_point(data = centroids, aes(x = LD1, y = LD2, fill = Class), shape = 22, size = 4, stroke = 0.5, color = "black") +
-  labs(x = "LD1", y = "LD2") +
+  labs(
+    x = paste0("LD1 (", explained_variance_percent[1], "% variance explained)"),
+    y = paste0("LD2 (", explained_variance_percent[2], "% variance explained)")
+  ) +
   scale_color_manual(
     name = "Class",
     values = my_palette,
@@ -1026,6 +1069,8 @@ ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
 
 # Print the scatter plot
 print(scatter_plot)
+
+
 
 
 
