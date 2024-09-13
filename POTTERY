@@ -335,10 +335,10 @@ print(head(selected_training_data_clean))
 print(head(selected_training_data_clean))
 
 # Perform Canonical Discriminant Analysis
-cda_model <- lda(FACTOR1 ~ ., data = selected_training_data_clean)
+lda_model <- lda(FACTOR1 ~ ., data = selected_training_data_clean)
 
 # Extract the discriminant scores for each observation
-scores <- predict(cda_model)$x
+scores <- predict(lda_model)$x
 
 # Create a data frame with scores and class labels
 df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
@@ -365,7 +365,7 @@ centroids <- aggregate(. ~ Class, data = df, FUN = mean)
 #--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
 
 # Perform prediction on the selected_training_data_clean
-selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+selected_training_data_clean$Prediction <- predict(lda_model, newdata = selected_training_data_clean)$class
 
 # Specify the file path and write the file
 file_path <- "yourfolder/S6_selected_training_data_clean_with_predictions.xlsx"
@@ -470,7 +470,7 @@ ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
 print(scatter_plot)
 
 # Get variable importance scores
-variable_importance <- cda_model$scaling
+variable_importance <- lda_model$scaling
 print(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
@@ -626,10 +626,10 @@ write.csv(summary_stats, file = file_path, row.names = TRUE)
 print(head(selected_training_data_clean))
 
 # Perform Canonical Discriminant Analysis
-cda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
+lda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
 
 # Extract the discriminant scores for each observation
-scores <- predict(cda_model)$x
+scores <- predict(lda_model)$x
 
 # Create a data frame with scores and class labels
 df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
@@ -651,7 +651,7 @@ df <- na.omit(df)
 centroids <- aggregate(. ~ Class, data = df, FUN = mean)
 
 # Get variable importance scores
-variable_importance <- cda_model$scaling
+variable_importance <- lda_model$scaling
 print(variable_importance)
 str(variable_importance)
 
@@ -701,7 +701,7 @@ print(variable_names[top_predictors_LD2])
 #--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
 
 # Perform prediction on the selected_training_data_clean
-selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+selected_training_data_clean$Prediction <- predict(lda_model, newdata = selected_training_data_clean)$class
 
 # Create a cross table
 cross_table <- table(selected_training_data_clean$FACTOR, selected_training_data_clean$Prediction)
@@ -854,10 +854,10 @@ selected_training_data_clean <- selected_training_data
 print(head(selected_training_data_clean))
 
 # Perform Canonical Discriminant Analysis
-cda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
+lda_model <- lda(FACTOR2 ~ ., data = selected_training_data_clean)
 
 # Extract the discriminant scores for each observation
-scores <- predict(cda_model)$x
+scores <- predict(lda_model)$x
 
 # Create a data frame with scores and class labels
 df <- data.frame(scores, Class = as.factor(selected_training_data_clean$FACTOR))
@@ -879,7 +879,7 @@ df <- na.omit(df)
 centroids <- aggregate(. ~ Class, data = df, FUN = mean)
 
 # Get variable importance scores
-variable_importance <- cda_model$scaling
+variable_importance <- lda_model$scaling
 print(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
@@ -933,7 +933,7 @@ group_scores <- lapply(levels(df$Class), function(level) {
 #--------------------------------------------------CROSS TABLE WITH PREDICTION RESULTS 
 
 # Perform prediction on the selected_training_data_clean
-selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
+selected_training_data_clean$Prediction <- predict(lda_model, newdata = selected_training_data_clean)$class
 
 # Create a cross table
 cross_table <- table(selected_training_data_clean$FACTOR, selected_training_data_clean$Prediction)
