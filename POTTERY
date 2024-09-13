@@ -12,7 +12,7 @@ library(stats)
 #------------------------------------------------FILE UPLOAD AND DATA CLEANING OPERATIONS
 
 # Specify the file path
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/RAWDATA.csv"
+file_path <- "yourfolder/RAWDATA.csv"
 
 # Read the Excel file
 data <- read.csv(file_path, sep=';') 
@@ -68,8 +68,8 @@ numerical_predictors <- numerical_predictors <- c("Sq", "Ssk", "Sku", "Sp", "Sv"
 selected_training_data <- training_data[, c("FACTOR1", numerical_predictors)]
 
 # Specify the file paths for the training and test files
-training_file <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/POTTERY_training.xlsx"
-test_file <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/POTTERY_test.xlsx"
+training_file <- "yourfolder/POTTERY_training.xlsx"
+test_file <- "yourfolder/POTTERY_test.xlsx"
 
 # Write the training data to a new Excel file
 write.xlsx(training_data, file = training_file, rownames = FALSE)
@@ -151,7 +151,7 @@ numerical_predictors <- numerical_predictors[numerical_predictors != "FACTOR1"]
 cor_matrix <- cor(selected_training_data_clean[, numerical_predictors])
 
 # Define the file path and name for the CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S1_cor_matrix.csv"
+file_path <- "yourfolder/S1_cor_matrix.csv"
 
 # Save the correlation matrix as a CSV file
 write.csv(cor_matrix, file = file_path, row.names = TRUE)
@@ -191,7 +191,7 @@ p_values <- p_values[non_na_p_values]
 p_values_df <- data.frame(Predictor = numerical_predictors, P_Value = p_values)
 
 # Define the file path and name for the p-values CSV file
-file_path_pvalues <- "C:/Users/nicco/R/TRAC3D/POTTERY/S2_p_values.csv"
+file_path_pvalues <- "yourfolder/S2_p_values.csv"
 write.csv(p_values_df, file = file_path_pvalues, row.names = FALSE)
 
 # Create an empty vector to store the predictors to remove
@@ -287,11 +287,11 @@ selected_variables <- setdiff(colnames(selected_training_data_clean), "FACTOR1")
 print(selected_variables)
 
 # Save the selected predictors to a new CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S3_selected_predictors.csv"
+file_path <- "yourfolder/S3_selected_predictors.csv"
 write.csv(selected_variables, file = file_path, row.names = FALSE)
 
 # Save selected_training_data_clean as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S4_selected_training_data_clean.csv"
+file_path <- "yourfolder/S4_selected_training_data_clean.csv"
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
 print(head(selected_training_data_clean))
 
@@ -330,7 +330,7 @@ for (variable in selected_variables) {
 str(selected_training_data_clean)
 
 # Save selected_training_data_no_outliers as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S5_selected_training_data_no_outliers.csv"
+file_path <- "yourfolder/S5_selected_training_data_no_outliers.csv"
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
 print(head(selected_training_data_clean))
 
@@ -376,7 +376,7 @@ centroids <- aggregate(. ~ Class, data = df, FUN = mean)
 selected_training_data_clean$Prediction <- predict(cda_model, newdata = selected_training_data_clean)$class
 
 # Specify the file path and write the file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S6_selected_training_data_clean_with_predictions.xlsx"
+file_path <- "yourfolder/S6_selected_training_data_clean_with_predictions.xlsx"
 write.xlsx(selected_training_data_clean, file = file_path, rowNames = FALSE)
 
 # Create a cross table
@@ -420,7 +420,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and save the cross table as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S7_results_12_groups.csv"
+file_path <- "yourfolder/S7_results_12_groups.csv"
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
@@ -471,7 +471,7 @@ scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   guides(color = guide_legend(override.aes = list(shape = 21)))
 
 # Define the file path and save the scatter plot as a JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_2.jpg"
+file_path <- "yourfolder/Figure_2.jpg"
 ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
 
 # Print the scatter plot
@@ -482,7 +482,7 @@ variable_importance <- cda_model$scaling
 print(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S8_variable_importance.csv"
+file_path <- "yourfolder/S8_variable_importance.csv"
 write.csv(variable_importance, file = file_path, row.names = TRUE)
 
 # Number of predictors
@@ -562,7 +562,7 @@ selected_training_data_clean$FACTOR2 <- sapply(selected_training_data_clean$FACT
 selected_training_data_clean$FACTOR2 <- as.factor(selected_training_data_clean$FACTOR2)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S9_selected_training_data_clean_6_groups.csv"
+file_path <- "yourfolder/S9_selected_training_data_clean_6_groups.csv"
 write.csv(selected_training_data_clean, file = file_path, row.names = TRUE)
 
 # Removing FACTOR1 
@@ -607,7 +607,7 @@ boxplot <- ggplot(long_data, aes(y = value, fill = variable, color = variable)) 
 print(boxplot)
 
 # Define the file path and save the scatter plot as a JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_4.jpg"
+file_path <- "yourfolder/Figure_4.jpg"
 ggsave(file = file_path, plot = boxplot, width = 10, height = 6, dpi = 600)
 
 # Calculate average, minimum, maximum, and standard deviation values by FACTOR2
@@ -623,7 +623,7 @@ summary_stats <- long_data %>%
 print(summary_stats)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S9_summary_stats.csv"
+file_path <- "yourfolder/S9_summary_stats.csv"
 write.csv(summary_stats, file = file_path, row.names = TRUE)
 
 
@@ -664,7 +664,7 @@ print(variable_importance)
 str(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S10_variable_importance_6_groups.csv"
+file_path <- "yourfolder/S10_variable_importance_6_groups.csv"
 write.csv(variable_importance, file = file_path, row.names = TRUE)
 
 # Number of predictors
@@ -753,7 +753,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and save the cross table as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S11_results_6_groups.csv"
+file_path <- "yourfolder/S11_results_6_groups.csv"
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
@@ -795,7 +795,7 @@ scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   guides(color = guide_legend(override.aes = list(shape = 21)))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_3.jpg"
+file_path <- "yourfolder/Figure_3.jpg"
 ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
 
 # Print the scatter plot
@@ -807,7 +807,7 @@ print(scatter_plot)
 #------------------------------------------------------CLASSIFICATION USING INDUSTRIAL EARTH
 
 # Specify the file path
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/RAW/RAWDATA.csv"
+file_path <- "yourfolder/RAWDATA.csv"
 
 # Read the Excel file
 data <- read.csv(file_path, sep=';') 
@@ -891,7 +891,7 @@ variable_importance <- cda_model$scaling
 print(variable_importance)
 
 # Define the file path and save the dataframe as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S13_variable_importance_industrial.csv"
+file_path <- "yourfolder/S13_variable_importance_industrial.csv"
 write.csv(variable_importance, file = file_path, row.names = TRUE)
 
 # Number of predictors
@@ -985,7 +985,7 @@ global_percentage <- sum(correct_counts) / total_observations * 100
 cat("Global Percentage of Cases Correctly Classified:", global_percentage, "%\n")
 
 # Define the file path and save the cross table as a CSV file
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/S12_results_industrial_earth.csv"
+file_path <- "yourfolder/S12_results_industrial_earth.csv"
 write.csv(cross_table_combined, file = file_path, row.names = TRUE)
 
 
@@ -1027,7 +1027,7 @@ scatter_plot <- ggplot(df, aes(x = LD1, y = LD2, color = Class)) +
   guides(color = guide_legend(override.aes = list(shape = 21)))
 
 # Define the file path and name for the JPG image
-file_path <- "C:/Users/nicco/R/TRAC3D/POTTERY/Figure_5.jpg"
+file_path <- "yourfolder/Figure_5.jpg"
 
 # Save the scatter plot as a JPG image
 ggsave(file = file_path, plot = scatter_plot, width = 10, height = 6, dpi = 600)
