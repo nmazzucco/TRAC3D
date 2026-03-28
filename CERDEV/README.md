@@ -1,6 +1,7 @@
 # CERDEV
 
-This folder contains the R script, input files, and output files used for the analyses presented in the manuscript.
+This folder contains the R script, input files, and output files used for the analyses presented in the manuscript:
+Mazzucco & Ibáñez 2026: "A New Method for Estimating Prehistoric Agricultural Productivity through the Microtextural Analysis of Harvesting Tools"
 
 ## Contents
 
