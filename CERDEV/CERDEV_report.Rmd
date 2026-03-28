@@ -32,6 +32,7 @@ CERDEV/
 │   ├── Supplementary Material_S1.xlsx
 │   └── Supplementary Material_S2.xlsx
 └── output/
+```
 
 ## Project paths
 
