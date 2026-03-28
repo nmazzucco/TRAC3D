@@ -1051,18 +1051,12 @@ final_class_df_4class <- class_distribution %>%
 print(final_class_df_4class)
 
 # ---------- Riepilogo per ciascun TOOL (final_class_df) ----------
-# CSV di output
-write.csv(
-  class_distribution_tool,
-  file.path(out_dir, "6_class_distribution_tool.csv"),
-  row.names = FALSE
-)
-
-write.csv(
-  dominant_intervals_df_4class,
-  file.path(out_dir, "7_dominant_intervals_by_working_time_classes.csv"),
-  row.names = FALSE
-)
+write.csv(class_distribution_tool,
+          file.path(out_dir, "6_class_distribution_by_tools.csv"),
+          row.names = FALSE)
+write.csv(final_class_df_4class,
+          file.path(out_dir, "7_dominant_intervals_by_working_time_classes.csv"),
+          row.names = FALSE)
 
 
 library(dplyr)
