@@ -1,0 +1,162 @@
+---
+title: "CERDEV analysis report"
+author: "Niccolò Mazzucco"
+date: "2026-03-28"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+This report documents the analytical workflow implemented in CERDEV.R for the CERDEV dataset.
+The script reads the training and test datasets, performs variable cleaning and selection, explores wear-related variation through PCA and changepoint analysis, classifies wear classes through discriminant analysis, and estimates harvested straw counts, harvested surface, and crop yields.
+
+```markdown
+## Project structure
+The analysis assumes the following folder structure:
+
+```text
+CERDEV/
+├── CERDEV.R
+├── CERDEV_report.Rmd
+├── data/
+│   ├── Supplementary Material_S1.xlsx
+│   └── Supplementary Material_S2.xlsx
+└── output/
+
+## Project paths
+
+```{r paths}
+project_dir <- getwd()
+data_dir <- file.path(project_dir, "data")
+out_dir <- file.path(project_dir, "output")
+
+training_input_file <- file.path(data_dir, "Supplementary Material_S1.xlsx")
+test_input_file <- file.path(data_dir, "Supplementary Material_S2.xlsx")
+
+project_dir
+training_input_file
+test_input_file
+out_dir
+```
+## Output files generated
+
+```{r cars}
+list.files(out_dir)
+```
+## Input data
+The script uses the following input files:
+
+- data/Supplementary Material_S1.xlsx: training dataset
+- data/Supplementary Material_S2.xlsx: test dataset
+
+
+## Main analytical steps
+Import of input datasets
+Cleaning of the training dataset
+Removal of constant and highly correlated predictors
+Regression tree for working-time segmentation
+PCA and changepoint analysis
+Canonical discriminant analysis
+Projection of experimental tools into discriminant space
+Calibration of harvested straw counts
+Conversion into harvested surface and estimated yields
+
+## Output files
+The script generates output files in the output/ folder, including figures, intermediate tables, and final prediction files.
+
+## Reproducibility note
+To reproduce the analysis, set the working directory to the CERDEV project folder and run CERDEV.R.
+
+## Key Output Figures
+
+### Figure 1. Regression tree
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_1.jpeg"))
+```
+
+### Figure 2. PCA loadings on PC1
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_2.png"))
+```
+
+### Figure 3. Segmented regression and changepoint analysis
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_3.png"))
+```
+
+### Figure 4. Standardized evolution of key surface parameters
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_4.png"))
+```
+
+### Figure 5. Boxplots of predictors by wear-time classes
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_5.jpg"))
+```
+
+### Figure 6. Canonical discriminant space of training surfaces
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_6.jpg"))
+```
+
+### Figure 7. Projections of experimental test tools
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_7.jpg"))
+```
+
+### Figure 8. Alternative calibration models (LD1 to cumulative harvest)
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_8.png"))
+```
+
+### Figure 9. Final harvesting model
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_9.png"))
+```
+
+### Figure 10. Harvesting model with experimental tools
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_10.png"))
+```
+
+### Figure 11. Combined figure of harvesting calibration and experimental tools
+```{r fig-tree, echo=FALSE, out.width='80%'}
+knitr::include_graphics(file.path(out_dir, "Figure_11.png"))
+```
+
+Output tables
+
+The workflow also generates the following tabular outputs in the output/ folder:
+
+1_selected_predictors.csv
+2_selected_training_data_clean.csv
+3_breakpoints_segmented_regression.csv
+4_variables_contributions.csv
+5_cross_table_results.csv
+6_class_distribution_by_tools.csv
+7_dominant_intervals_by_working_time_classes.csv
+8_harvested_straw_prediction_tools.csv
+9_harvested_surface_estimation.csv
+10_tool_harvest_conversions.csv
+Saved model object
+
+The fitted harvesting model is also saved as:
+
+Harvesting_model_fitted_linear.RDS
+
+## Session information
+```{r}
+sessionInfo()
+```
+
+
