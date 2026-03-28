@@ -23,6 +23,7 @@ The script reads the training and test datasets, performs variable cleaning and 
 ```markdown
 ## Project structure
 The analysis assumes the following folder structure:
+```
 
 ```text
 CERDEV/
@@ -49,11 +50,15 @@ training_input_file
 test_input_file
 out_dir
 ```
+
+
 ## Output files generated
 
 ```{r cars}
 list.files(out_dir)
 ```
+
+
 ## Input data
 The script uses the following input files:
 
@@ -72,8 +77,10 @@ Projection of experimental tools into discriminant space
 Calibration of harvested straw counts
 Conversion into harvested surface and estimated yields
 
+
 ## Output files
 The script generates output files in the output/ folder, including figures, intermediate tables, and final prediction files.
+
 
 ## Reproducibility note
 To reproduce the analysis, set the working directory to the CERDEV project folder and run CERDEV.R.
@@ -81,83 +88,120 @@ To reproduce the analysis, set the working directory to the CERDEV project folde
 ## Key Output Figures
 
 ### Figure 1. Regression tree
+This figure shows the regression tree fitted on the experimental training dataset using working time as the response variable and the selected surface parameters as predictors. The tree was used as an exploratory tool to identify possible thresholds and discontinuities in wear development through time. Its structure helps visualise how combinations of surface variables relate to progressive stages of use and supports the interpretation that wear evolution is not fully linear.
+
 ```{r fig-tree, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_1.jpeg"))
 ```
 
+
 ### Figure 2. PCA loadings on PC1
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure shows the loadings of the selected surface parameters on the first principal component (PC1), which was used as a composite wear metric. Parameters with higher absolute loadings contribute more strongly to the main axis of wear-related surface variation. The PCA therefore provides a synthetic representation of how the microtopography changes through the experimental harvesting sequence.
+
+```{r fig-pca, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_2.png"))
 ```
 
+
 ### Figure 3. Segmented regression and changepoint analysis
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure summarises the temporal structure of wear development in the training dataset. The segmented regression identifies major changes in slope along the wear trajectory, while changepoint detection provides an independent statistical assessment of shifts in the composite wear metric. Together, these analyses support the interpretation of wear development as a non-linear process structured into distinct stages.
+
+```{r fig-breakpoints, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_3.png"))
 ```
 
+
 ### Figure 4. Standardized evolution of key surface parameters
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure illustrates the standardised trajectories of the selected surface parameters through experimental working time. By scaling all variables to a comparable range, it becomes easier to visualise their relative trends and to identify periods of rapid change, stabilisation, or oscillation. The plot highlights that wear development is expressed through coordinated but not identical parameter trajectories, reflecting the complexity of cereal-polish formation.
+
+```{r fig-parameters, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_4.png"))
 ```
 
+
 ### Figure 5. Boxplots of predictors by wear-time classes
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure presents the distribution of the selected predictors across the four working-time classes defined in the training dataset. It illustrates how the surface variables differ between unused, early-use, intermediate-use, and advanced-use stages. These boxplots provide an intuitive overview of class-level variation and support the subsequent discriminant modelling.
+
+```{r fig-boxplot, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_5.jpg"))
 ```
 
+
 ### Figure 6. Canonical discriminant space of training surfaces
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This plot shows the separation of the training surfaces in canonical discriminant space based on the selected wear-related surface parameters. The first discriminant axis mainly captures the gradient from unused to heavily used surfaces, while the second axis accounts for secondary variation among wear classes. The limited overlap between classes supports the classification performance of the model.
+
+```{r fig-cda, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_6.jpg"))
 ```
 
+
 ### Figure 7. Projections of experimental test tools
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure shows the projection of the independent experimental tools into the discriminant space defined by the training dataset. It allows visual assessment of how well the external samples align with the wear classes identified during training. The distribution of projected tools provides a direct illustration of the robustness and transferability of the wear-classification model.
+
+```{r fig-tools, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_7.jpg"))
 ```
 
+
 ### Figure 8. Alternative calibration models (LD1 to cumulative harvest)
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure compares several candidate models relating the supervised wear axis (LD1) to cumulative harvested straws. Although non-linear alternatives were explored, the linear model was retained as the most parsimonious and archaeologically coherent solution, because harvested straws are expected to increase approximately linearly with cumulative work.
+
+```{r fig-model-comparison, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_8.png"))
 ```
 
+
 ### Figure 9. Final harvesting model
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure shows the final linear calibration retained to translate the supervised wear metric into estimated cumulative harvested straws. It represents the core quantitative step linking surface texture variation to harvesting intensity. The fitted relationship provides the basis for projecting independent tools into a quantitative scale of cumulative work.
+
+```{r fig-harvest-model, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_9.png"))
 ```
 
+
 ### Figure 10. Harvesting model with experimental tools
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This figure overlays the projected experimental tools onto the final harvesting calibration model. It shows how individual tools, once translated into the supervised wear axis, correspond to different estimated cumulative straw counts. In this way, the plot links each external experimental tool to a quantitative harvesting estimate derived from surface wear.
+
+```{r fig-harvest-tools, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_10.png"))
 ```
 
+
 ### Figure 11. Combined figure of harvesting calibration and experimental tools
-```{r fig-tree, echo=FALSE, out.width='80%'}
+This combined figure summarises the final calibration workflow by presenting both the fitted harvesting model and the position of the experimental tools within that model. It provides an integrated visual synthesis of the main analytical result: the conversion of surface wear development into quantitative estimates of harvested plant material.
+
+```{r fig-combined, echo=FALSE, out.width='80%'}
 knitr::include_graphics(file.path(out_dir, "Figure_11.png"))
 ```
 
-Output tables
 
-The workflow also generates the following tabular outputs in the output/ folder:
+## Output tables
 
-1_selected_predictors.csv
-2_selected_training_data_clean.csv
-3_breakpoints_segmented_regression.csv
-4_variables_contributions.csv
-5_cross_table_results.csv
-6_class_distribution_by_tools.csv
-7_dominant_intervals_by_working_time_classes.csv
-8_harvested_straw_prediction_tools.csv
-9_harvested_surface_estimation.csv
-10_tool_harvest_conversions.csv
+The workflow generates a series of intermediate and final tabular outputs that document each analytical step. These include the final predictor set after cleaning and correlation filtering, the cleaned training dataset, breakpoint estimates from segmented regression, variable contributions to the discriminant functions, classification results, and the final estimates of harvested straws, harvested surface, and yield.
+
+- `1_selected_predictors.csv`: final set of predictors retained after variance and correlation filtering.
+- `2_selected_training_data_clean.csv`: cleaned training dataset used in the subsequent modelling steps.
+- `3_breakpoints_segmented_regression.csv`: estimated breakpoints from segmented regression on the wear metric.
+- `4_variables_contributions.csv`: variable contributions to the canonical discriminant functions.
+- `5_cross_table_results.csv`: confusion matrix and classification performance of the discriminant model.
+- `6_class_distribution_by_tools.csv`: distribution of predicted wear classes for each experimental tool.
+- `7_dominant_intervals_by_working_time_classes.csv`: dominant predicted wear classes by working-time interval.
+- `8_harvested_straw_prediction_tools.csv`: estimated cumulative harvested straws for each experimental tool.
+- `9_harvested_surface_estimation.csv`: conversion of harvested straws into estimated harvested surface.
+- `10_tool_harvest_conversions.csv`: conversion of harvested straws into grain-output estimates.
+
 Saved model object
 
-The fitted harvesting model is also saved as:
+The fitted harvesting model is also saved as: Harvesting_model_fitted_linear.RDS
 
-Harvesting_model_fitted_linear.RDS
 
 ## Session information
 ```{r}
 sessionInfo()
 ```
+
+
+
+
 
 
