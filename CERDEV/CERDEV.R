@@ -302,7 +302,7 @@ dev.off()
 # Show again in R
 rpart.plot(tree_model)
 
-cat("Tree plot saved to:", file.path(out_dir, "Figure_tree.jpeg"), "\n")
+cat("Tree plot saved to:", file.path(out_dir, "Figure_1.jpeg"), "\n")
 
 # Predict WORKING_TIME using the regression tree to define progressive groups
 new_training_data$FACTOR <- predict(tree_model, new_training_data, type = "vector")
