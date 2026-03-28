@@ -8,6 +8,8 @@ Mazzucco & Ibáñez 2026: "A New Method for Estimating Prehistoric Agricultural 
 - `CERDEV.R`  
   Main R script used to run the full analytical workflow.
 
+- `CERDEV_report.Rmd`: R Markdown report describing the workflow and outputs of the analysis.
+
 - `data/`  
   Input files required to run the script:
   - `Supplementary Material_S1.xlsx`
@@ -56,3 +58,4 @@ CERDEV/
 │   ├── Supplementary Material_S1.xlsx
 │   └── Supplementary Material_S2.xlsx
 └── output/
+
