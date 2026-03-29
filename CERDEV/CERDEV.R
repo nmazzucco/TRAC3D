@@ -470,32 +470,128 @@ seg_csv_path <- file.path(out_dir, "3_breakpoints_segmented_regression.csv")
 write.csv(seg_bp_table, seg_csv_path, row.names = FALSE)
 cat("Breakpoint segmented salvati in:", seg_csv_path, "\n")
 
-# open device
-png(fig_path, width = 1600, height = 900, res = 150, bg = "white")
+# ---------------------------
+# Common plotting settings
+# ---------------------------
+x <- df_time_agg$WORKING_TIME
+y <- wear_metric
 
-# lay out panels: 1 row, 3 columns
-par(mfrow = c(1, 3), mar = c(4.5, 4.5, 3, 1), mgp = c(2.2, 0.8, 0))
+# predicted values on observed x
+yhat_seg <- fitted(fit_seg)
 
-## (1) segmented package diagnostic plot
-plot(fit_seg, conf.level = 0.95, main = "Segmented regression (diagnostic)")
+# changepoint indices -> working time values
+cp_idx  <- cpts(cpt_mean)
+cp_time <- x[cp_idx]
 
-## (2) wear vs time with segmented fit
-plot(df_time_agg$WORKING_TIME, wear_metric, type = "b", pch = 19,
-     xlab = "Working Time (hours)", ylab = "Wear Metric (PC1)",
-     main = "Wear vs Time with segmented fit")
-lines(df_time_agg$WORKING_TIME, fitted(fit_seg), col = "red", lwd = 2)
-legend("topleft", inset = 0.02,
-       legend = c("Raw Data", "Segmented Fit"),
-       col    = c("black", "red"), pch = c(19, NA), lty = c(0, 1), lwd = c(1, 2))
+# common axis labels
+xlab_common <- "Working Time (hours)"
+ylab_common <- "Wear Metric (PC1)"
 
-## (3) changepoint plot with custom x-axis
-plot(cpt_mean, xaxt = "n",
-     main = "Changepoint on wear metric",
-     xlab = "Working Time (hours)", ylab = "PC1")
-axis(1, at = seq_along(df_time_agg$WORKING_TIME),
-     labels = df_time_agg$WORKING_TIME, las = 2, cex.axis = 0.8)
+# common x/y limits across ALL PANELS
+xlim_common <- range(x, na.rm = TRUE)
+ylim_common <- range(c(y, yhat_seg), na.rm = TRUE)
 
-# close device (AFTER plotting)
+# optional small padding
+xpad <- diff(xlim_common) * 0.03
+ypad <- diff(ylim_common) * 0.05
+xlim_common <- c(xlim_common[1] - xpad, xlim_common[2] + xpad)
+ylim_common <- c(ylim_common[1] - ypad, ylim_common[2] + ypad)
+
+# ---------------------------
+# Confidence intervals for segmented fit
+# ---------------------------
+# Predict on a fine grid for smooth line and CI
+newx <- seq(min(x), max(x), length.out = 200)
+pred <- predict(fit_seg, newdata = data.frame(WORKING_TIME = newx), se.fit = TRUE)
+
+fit_line <- pred$fit
+upper_ci <- pred$fit + 1.96 * pred$se.fit
+lower_ci <- pred$fit - 1.96 * pred$se.fit
+
+# update ylim to also include CI if needed
+ylim_common <- range(c(ylim_common, upper_ci, lower_ci), na.rm = TRUE)
+
+# ---------------------------
+# Open device
+# ---------------------------
+png(fig_path, width = 1800, height = 650, res = 150, bg = "white")
+par(mfrow = c(1, 3), mar = c(4.8, 4.8, 3.2, 1), mgp = c(2.4, 0.8, 0))
+
+# ---------------------------
+# (A) Segmented fit + 95% CI
+# ---------------------------
+plot(x, y,
+     type = "b", pch = 19,
+     xlim = xlim_common, ylim = ylim_common,
+     xlab = xlab_common, ylab = ylab_common,
+     main = "(A) Segmented regression")
+
+polygon(c(newx, rev(newx)),
+        c(lower_ci, rev(upper_ci)),
+        border = NA, col = rgb(1, 0, 0, 0.15))
+
+lines(newx, fit_line, col = "red", lwd = 2)
+
+if (nrow(seg_bp_table) > 0) {
+  abline(v = seg_bp_table$WORKING_TIME, col = "red", lty = 2, lwd = 1.5)
+}
+
+legend("bottomright", inset = 0.02,
+       legend = c("Raw Data", "Segmented Fit", "95% CI", "Segmented Breakpoints"),
+       col    = c("black", "red", rgb(1, 0, 0, 0.15), "red"),
+       pch    = c(19, NA, 15, NA),
+       lty    = c(1, 1, NA, 2),
+       lwd    = c(1, 2, NA, 1.5),
+       pt.cex = c(1, NA, 1.6, NA),
+       cex    = 0.9,
+       bty    = "n")
+
+# ---------------------------
+# (B) Wear vs time with segmented fit
+# ---------------------------
+plot(x, y,
+     type = "b", pch = 19,
+     xlim = xlim_common, ylim = ylim_common,
+     xlab = xlab_common, ylab = ylab_common,
+     main = "(B) Wear vs Time with segmented fit")
+
+lines(x, yhat_seg, col = "red", lwd = 2)
+
+if (nrow(seg_bp_table) > 0) {
+  abline(v = seg_bp_table$WORKING_TIME, col = "red", lty = 2, lwd = 1.5)
+}
+
+legend("bottomright", inset = 0.02,
+       legend = c("Raw Data", "Segmented Fit", "Segmented Breakpoints"),
+       col    = c("black", "red", "red"),
+       pch    = c(19, NA, NA),
+       lty    = c(1, 1, 2),
+       lwd    = c(1, 2, 1.5),
+       cex    = 0.9,
+       bty    = "n")
+
+# ---------------------------
+# (C) Raw data + changepoints
+# ---------------------------
+plot(x, y,
+     type = "b", pch = 19,
+     xlim = xlim_common, ylim = ylim_common,
+     xlab = xlab_common, ylab = ylab_common,
+     main = "(C) Changepoint on wear metric")
+
+if (length(cp_time) > 0) {
+  abline(v = cp_time, col = "blue", lty = 2, lwd = 1.5)
+}
+
+legend("bottomright", inset = 0.02,
+       legend = c("Raw Data", "Changepoints"),
+       col    = c("black", "blue"),
+       pch    = c(19, NA),
+       lty    = c(1, 2),
+       lwd    = c(1, 1.5),
+       cex    = 0.9,
+       bty    = "n")
+
 dev.off()
 
 cat("Figure saved to:", fig_path, "\n")
