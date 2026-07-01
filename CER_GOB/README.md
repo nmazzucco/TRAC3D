@@ -1,6 +1,6 @@
 # CER_GOB harvesting-intensity model
 
-This folder contains the R pipeline used to estimate harvesting intensity, harvested stem counts, and grain output for the CER_GOB dataset using experimental traceological training data.
+This folder contains the R pipeline used to estimate harvesting intensity, harvested stem counts, and grain output for the `CER_GOB` dataset of Göbekli Tepe harvesting tools using experimental traceological training data.
 
 The script trains a Random Forest regression model on experimental observations (`CAT == 1`) and applies the model to archaeological observations (`CAT == 2`). Predicted working time is converted into estimated harvested stems and grain weight, then summarised at tool level.
 
@@ -9,36 +9,31 @@ The script trains a Random Forest regression model on experimental observations 
 The analysis is expected to be run from inside the `CER_GOB` folder:
 
 ```text
-CER_GOB/
-├── CER_GOB.R
-├── README.md
-├── RAWDATA/
-│   └── RAWDATA.xlsx
-└── OUT/
+TRAC3D/
+└── CER_GOB/
+    ├── CER_GOB.R
+    ├── README.md
+    ├── RAWDATA/
+    │   └── RAWDATA.xlsx
+    └── OUT/
 ```
 
-## Main script
+## How to run
 
-Run the pipeline with:
+From RStudio, set the working directory to the folder containing `CER_GOB.R` and run:
 
 ```r
 source("CER_GOB.R")
 ```
 
-or from a terminal:
+From a terminal:
 
 ```bash
+cd path/to/TRAC3D/CER_GOB
 Rscript CER_GOB.R
 ```
 
-The script assumes that the current working directory is `CER_GOB/`. In RStudio, set the working directory to the folder containing `CER_GOB.R` before running the script.
-
-Example:
-
-```r
-setwd("path/to/TRAC3D/CER_GOB")
-source("CER_GOB.R")
-```
+The script assumes that the current working directory is `CER_GOB/`.
 
 ## Input data
 
@@ -78,25 +73,13 @@ The pipeline performs the following steps:
 1. Loads and cleans the input Excel file.
 2. Removes fully empty rows and constant columns.
 3. Converts known numeric-like columns to numeric values.
-4. Splits the dataset into:
-   - experimental training data: `CAT == 1`
-   - archaeological data: `CAT == 2`
+4. Splits the dataset into experimental training data (`CAT == 1`) and archaeological data (`CAT == 2`).
 5. Trains a Random Forest model to predict `WORKING_TIME` from selected surface-texture predictors.
 6. Uses repeated 5-fold cross-validation, with 5 repeats, to tune `mtry`.
 7. Predicts working time for archaeological observations.
 8. Clamps archaeological predictions to the observed experimental working-time range.
-9. Converts predicted hours into harvested stems using:
-
-```text
-3797.5 stems per hour
-```
-
-10. Converts harvested stems into grain weight using:
-
-```text
-0.30 g grain per harvested stem
-```
-
+9. Converts predicted hours into harvested stems using `3797.5` stems per hour.
+10. Converts harvested stems into grain weight using `0.30` g grain per harvested stem.
 11. Aggregates results at tool level.
 12. Classifies tools into harvesting-intensity and stem-count classes.
 13. Saves CSV outputs, figures, and the trained model in `OUT/`.
@@ -156,7 +139,7 @@ install.packages(c(
 ))
 ```
 
-## Notes on reproducibility
+## Reproducibility
 
 The script uses:
 
@@ -183,6 +166,7 @@ CER_GOB/OUT/*
 !CER_GOB/OUT/.gitkeep
 ```
 
-## Citation / authorship
+## Citation and authorship
 
 This script is part of the TRAC3D analytical workflow for estimating harvesting intensity from surface-texture data. When reusing or adapting the workflow, cite the relevant TRAC3D project outputs and associated publications.
+
