@@ -8,11 +8,11 @@
 # Expected folder structure:
 #
 # TRAC3D/
-# └── GOB/
-#     ├── run_gob_harvest_model.R
-#     ├── RAWDATA/
-#     │   └── RAWDATA.xlsx
-#     └── OUT/
+# └── CER_GOB/
+#   ├── CER_GOB.R
+#   ├── README.md
+#   ├── RAWDATA/
+#   └── OUT/
 #
 # Run from inside TRAC3D/CE_GOB:
 #
