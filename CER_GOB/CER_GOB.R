@@ -1,5 +1,5 @@
 ###############################################################################
-# GOB HARVESTING-INTENSITY MODEL
+# GÖBEKLİ TEPE HARVESTING-INTENSITY MODEL
 #
 # Training data CAT == 1 -> predict WORKING_TIME directly
 # Archaeological data CAT == 2 -> estimate working time, harvested stems,
