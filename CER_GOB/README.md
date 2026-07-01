@@ -1,6 +1,6 @@
 # CER_GOB harvesting-intensity model
 
-This folder contains the R pipeline used to estimate harvesting intensity, harvested stem counts, and grain output for the `CER_GOB` dataset using experimental traceological training data.
+This folder contains the R pipeline used to estimate harvesting intensity, harvested stem counts, and grain output for the `CER_GOB` dataset of GÖBEKLİ TEPE harvesting inserts using experimental traceological training data.
 
 The script trains a Random Forest regression model on experimental observations (`CAT == 1`) and applies the model to archaeological observations (`CAT == 2`). Predicted working time is converted into estimated harvested stems and grain weight, then summarised at tool level.
 
