@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CER_GOB Harvesting-Intensity Model Report</title>
+  <style>
+    :root {
+      --text: #1f2933;
+      --muted: #52606d;
+      --line: #d9e2ec;
+      --soft: #f5f7fa;
+      --soft-2: #eef2f7;
+      --accent: #2f6f73;
+      --accent-dark: #204f52;
+      --warning-bg: #fff8e6;
+      --warning-border: #f0b429;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: #ffffff;
+    }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 42px 24px 64px;
+    }
+    header {
+      border-bottom: 3px solid var(--accent);
+      margin-bottom: 32px;
+      padding-bottom: 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2.1rem;
+      line-height: 1.2;
+      color: var(--accent-dark);
+    }
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      font-size: 1.05rem;
+    }
+    h2 {
+      margin-top: 34px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+      color: var(--accent-dark);
+      font-size: 1.45rem;
+    }
+    h3 {
+      margin-top: 24px;
+      color: var(--accent-dark);
+      font-size: 1.12rem;
+    }
+    p { margin: 12px 0; }
+    ul, ol { padding-left: 1.35rem; }
+    li { margin: 5px 0; }
+    .box {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+    .note {
+      background: var(--warning-bg);
+      border-left: 5px solid var(--warning-border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+    .path {
+      display: inline-block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--soft-2);
+      color: #1f2933;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 7px;
+      white-space: nowrap;
+    }
+    pre {
+      background: #f7fafc;
+      color: #1f2933;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-size: 0.92rem;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: var(--soft-2);
+      color: #1f2933;
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 18px 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: var(--soft-2);
+      color: var(--accent-dark);
+    }
+    footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>CER_GOB Harvesting-Intensity Model Report</h1>
+      <p class="subtitle">Random Forest prediction of working time, harvested stems, and estimated grain output from 3D surface texture variables.</p>
+    </header>
+
+    <section>
+      <h2>1. Purpose of the script</h2>
+      <p>
+        The <code>CER_GOB.R</code> script models harvesting intensity using experimental observations and applies the trained model to archaeological specimens.
+        Experimental rows are identified by <code>CAT == 1</code>, while archaeological rows are identified by <code>CAT == 2</code>.
+      </p>
+      <p>
+        The model predicts <code>WORKING_TIME</code> directly from selected 3D surface texture variables. Predicted working time is then converted into harvested stems and estimated grain output.
+      </p>
+    </section>
+
+    <section>
+      <h2>2. Folder structure</h2>
+      <p>The analysis is designed to run from inside the <span class="path">TRAC3D/CER_GOB</span> directory.</p>
+      <pre><code>TRAC3D/
+└── CER_GOB/
+    ├── CER_GOB.R
+    ├── README.md
+    ├── CER_GOB_report.html
+    ├── RAWDATA/
+    │   └── RAWDATA.xlsx
+    └── OUT/</code></pre>
+      <div class="box">
+        <p><strong>Input file location:</strong></p>
+        <p>The input file must be located at <span class="path">CER_GOB/RAWDATA/RAWDATA.xlsx</span>.</p>
+        <p>Generated CSV files, PNG figures, and the trained model are saved in <span class="path">CER_GOB/OUT</span>.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Required input columns</h2>
+      <p>The Excel file must contain at least the following columns:</p>
+      <table>
+        <thead>
+          <tr><th>Column</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>CAT</code></td><td>Defines the analytical group: <code>1</code> for experimental training data and <code>2</code> for archaeological data.</td></tr>
+          <tr><td><code>WORKING_TIME</code></td><td>Observed working time for the experimental training data.</td></tr>
+          <tr><td><code>TOOL</code></td><td>Tool identifier used for final aggregation.</td></tr>
+        </tbody>
+      </table>
+      <p>Optional columns such as <code>ID</code> and <code>NAME</code> are preserved in the subarea-level output when present.</p>
+    </section>
+
+    <section>
+      <h2>4. Predictor variables</h2>
+      <p>The script uses a manually selected set of 3D surface texture variables:</p>
+      <pre><code>Vmc, Sa, Sk, Vvc, Vvv, Smr1, Smr2, Spk, Svk, Sq, Sz, Vm, Vv, Spc, Spd</code></pre>
+      <p>If one or more predictors are absent from the dataset, the script issues a warning and uses the available predictors.</p>
+    </section>
+
+    <section>
+      <h2>5. Model workflow</h2>
+      <ol>
+        <li>Load <span class="path">RAWDATA/RAWDATA.xlsx</span>.</li>
+        <li>Remove empty rows and constant columns.</li>
+        <li>Convert selected numeric-like text columns to numeric values.</li>
+        <li>Split the dataset into training data (<code>CAT == 1</code>) and archaeological data (<code>CAT == 2</code>).</li>
+        <li>Train a Random Forest regression model to predict <code>WORKING_TIME</code>.</li>
+        <li>Apply the model to archaeological rows.</li>
+        <li>Clamp archaeological predictions to the observed experimental working-time range.</li>
+        <li>Convert predicted hours into harvested stems using <code>3797.5</code> stems per hour.</li>
+        <li>Aggregate results by <code>TOOL</code>.</li>
+        <li>Estimate grain output using <code>0.30 g</code> per harvested stem.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>6. Main outputs</h2>
+      <table>
+        <thead>
+          <tr><th>Output</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>gob_rf_variable_importance.csv</code></td><td>Random Forest variable-importance table.</td></tr>
+          <tr><td><code>gob_subarea_predictions.csv</code></td><td>Predicted working time and harvested stems for each archaeological analysed area.</td></tr>
+          <tr><td><code>gob_tool_predictions.csv</code></td><td>Tool-level summary of predicted working time and harvested stems.</td></tr>
+          <tr><td><code>gob_tool_grain_weight_kg.csv</code></td><td>Tool-level estimated grain output in grams and kilograms.</td></tr>
+          <tr><td><code>gob_total_grain_output.csv</code></td><td>Total assemblage-level grain-output summary.</td></tr>
+          <tr><td><code>gob_intensity_classes_tools.csv</code></td><td>Counts and proportions of tools by harvesting-intensity class.</td></tr>
+          <tr><td><code>gob_stem_count_classes.csv</code></td><td>Counts and proportions of tools by harvested-stem class.</td></tr>
+          <tr><td><code>gob_rf_working_time_model.rds</code></td><td>Saved Random Forest model object.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. Figures</h2>
+      <table>
+        <thead>
+          <tr><th>Figure</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>gob_experimental_harvesting_model.png</code></td><td>Relationship between predicted working time and cumulative harvested stems in the training data.</td></tr>
+          <tr><td><code>gob_intensity_classes_tools.png</code></td><td>Proportion of tools in each intensity class.</td></tr>
+          <tr><td><code>gob_tool_output_stems_and_kg.png</code></td><td>Tool-level harvested stems with secondary grain-output axis.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>8. Intensity classes</h2>
+      <table>
+        <thead>
+          <tr><th>Predicted working time</th><th>Class</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>&le; 8 h</code></td><td>Low</td></tr>
+          <tr><td><code>&gt; 8 h</code> and <code>&le; 18 h</code></td><td>Mid</td></tr>
+          <tr><td><code>&gt; 18 h</code> and <code>&le; 28 h</code></td><td>High</td></tr>
+          <tr><td><code>&gt; 28 h</code></td><td>Very high</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>9. How to run</h2>
+      <p>From a terminal:</p>
+      <pre><code>cd "C:/Users/nicco/OneDrive - University of Pisa/R/TRAC3D/CER_GOB"
+Rscript CER_GOB.R</code></pre>
+      <p>From RStudio:</p>
+      <pre><code>setwd("C:/Users/nicco/OneDrive - University of Pisa/R/TRAC3D/CER_GOB")
+source("CER_GOB.R")</code></pre>
+    </section>
+
+    <section>
+      <h2>10. Notes for GitHub</h2>
+      <div class="note">
+        <p><strong>Recommended repository practice:</strong> commit the script, README, and this report. Avoid committing raw Excel data and generated output files unless they are intentionally meant to be public.</p>
+      </div>
+    </section>
+
+    <footer>
+      <p>Report prepared for the TRAC3D CER_GOB workflow.</p>
+    </footer>
+  </main>
+</body>
+</html>
