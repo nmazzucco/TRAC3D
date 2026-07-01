@@ -14,7 +14,7 @@
 #   ├── RAWDATA/
 #   └── OUT/
 #
-# Run from inside TRAC3D/CE_GOB:
+# Run from inside TRAC3D/CER_GOB:
 #
 #   Rscript CER_GOB.R
 #
